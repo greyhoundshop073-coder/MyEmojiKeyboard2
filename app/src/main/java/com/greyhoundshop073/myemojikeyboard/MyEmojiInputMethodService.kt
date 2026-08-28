@@ -3,6 +3,7 @@ package com.greyhoundshop073.myemojikeyboard
 import android.graphics.Color
 import android.inputmethodservice.InputMethodService
 import android.view.Gravity
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.inputmethod.InputConnection
@@ -11,14 +12,14 @@ import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import android.widget.Toast
 
 class MyEmojiInputMethodService : InputMethodService() {
 
     private lateinit var emojiContainer: LinearLayout
-    private var currentCategory = "Smileys"
 
-    private val categories = mapOf(
-        "Smileys" to listOf(
+    private val categories = linkedMapOf(
+        "😀" to listOf(
             "😀","😃","😄","😁","😆","😅","😂","🤣",
             "😊","😇","🙂","🙃","😉","😌","😍","🥰",
             "😘","😗","😙","😚","😋","😛","😝","😜",
@@ -26,26 +27,25 @@ class MyEmojiInputMethodService : InputMethodService() {
             "😒","😞","😔","😟","😕","🙁","☹️","😣",
             "😖","😫","😩","🥺","😢","😭","😤","😠",
             "😡","🤬","🤯","😳","🥵","🥶","😱","😨",
-            "😰","😥","😓","🤗","🤔","🫣","🤭","🫢",
-            "🤫","🤥","😶","🫠","😐","😑","😬","🙄",
-            "😯","😦","😧","😮","😲","🥱","😴","🤤"
+            "😰","😥","😓","🤗","🤔","🤭","🫢","🤫",
+            "😶","🫠","😐","😑","😬","🙄","😯","😮",
+            "😲","🥱","😴","🤤"
         ),
-        "People" to listOf(
+        "👋" to listOf(
             "👋","🤚","🖐️","✋","🖖","👌","🤏","✌️",
             "🤞","🤟","🤘","🤙","👈","👉","👆","👇",
             "☝️","👍","👎","✊","👊","🤲","👏","🙌",
             "👐","🤝","🙏","✍️","💅","🤳","💪","🫶",
-            "👶","🧒","👦","👧","🧑","👱","👨","👩",
-            "🧔","👵","👴","🙍","🙎","🙅","🙆","💁",
-            "🙋","🧏","🙇","🤦","🤷","👮","👷","💂"
+            "👶","🧒","👦","👧","🧑","👨","👩","🧔",
+            "👵","👴","🙍","🙎","🙅","🙆","💁","🙋"
         ),
-        "Hearts" to listOf(
+        "❤️" to listOf(
             "❤️","🧡","💛","💚","💙","💜","🖤","🩷",
-            "🩵","🩶","🤍","🤎","💔","❤️‍🔥","❤️‍🩹","❣️",
-            "💕","💞","💓","💗","💖","💘","💝","💟",
-            "💌","💋","💯","💢","💥","💫","💦","💨"
+            "🩵","🩶","🤍","🤎","💔","❤️‍🔥","❤️‍🩹",
+            "❣️","💕","💞","💓","💗","💖","💘","💝",
+            "💟","💌","💋","💯","💢","💥","💫","💦"
         ),
-        "Animals" to listOf(
+        "🐶" to listOf(
             "🐶","🐱","🐭","🐹","🐰","🦊","🐻","🐼",
             "🐨","🐯","🦁","🐮","🐷","🐸","🐵","🙈",
             "🙉","🙊","🐔","🐧","🐦","🐤","🐣","🦆",
@@ -54,7 +54,7 @@ class MyEmojiInputMethodService : InputMethodService() {
             "🐢","🐍","🦎","🦖","🦕","🐙","🦑","🦀",
             "🐠","🐟","🐡","🦈","🐬","🐳","🐋","🦭"
         ),
-        "Food" to listOf(
+        "🍔" to listOf(
             "🍎","🍐","🍊","🍋","🍌","🍉","🍇","🍓",
             "🫐","🍈","🍒","🍑","🥭","🍍","🥥","🥝",
             "🍅","🍆","🥑","🥦","🥬","🥒","🌶️","🫑",
@@ -64,13 +64,13 @@ class MyEmojiInputMethodService : InputMethodService() {
             "🍿","🍩","🍪","🎂","🍰","🧁","🍫","🍭",
             "☕","🧃","🥤","🧋","🍵"
         ),
-        "Symbols" to listOf(
+        "✨" to listOf(
             "⭐","🌟","✨","💫","🔥","💎","👑","🎯",
             "✅","❌","❗","❓","‼️","⁉️","⚠️","⭕",
-            "❌","➕","➖","✖️","➗","♾️","💯","©️",
-            "®️","™️","✔️","☑️","🔴","🟠","🟡","🟢",
-            "🔵","🟣","⚫","⚪","🟤","🔷","🔶","🔺",
-            "🔻","🔰","♻️","⚡","☀️","☁️","☂️","☮️",
+            "➕","➖","✖️","➗","♾️","💯","©️","®️",
+            "™️","✔️","☑️","🔴","🟠","🟡","🟢","🔵",
+            "🟣","⚫","⚪","🟤","🔷","🔶","🔺","🔻",
+            "🔰","♻️","⚡","☀️","☁️","☂️","☮️",
             "☯️","✝️","☪️","🕉️","☸️","✡️","🔱","⚜️"
         )
     )
@@ -83,7 +83,7 @@ class MyEmojiInputMethodService : InputMethodService() {
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(Color.WHITE)
-            setPadding(8, 8, 8, 8)
+            setPadding(6, 6, 6, 6)
         }
 
         val title = TextView(this).apply {
@@ -91,8 +91,9 @@ class MyEmojiInputMethodService : InputMethodService() {
             textSize = 18f
             setTextColor(Color.BLACK)
             gravity = Gravity.CENTER
-            setPadding(8, 8, 8, 12)
+            setPadding(8, 6, 8, 8)
         }
+
         root.addView(title)
 
         val categoryScroll = HorizontalScrollView(this).apply {
@@ -103,46 +104,39 @@ class MyEmojiInputMethodService : InputMethodService() {
             orientation = LinearLayout.HORIZONTAL
         }
 
+        val savedButton = Button(this).apply {
+            text = "⭐"
+            textSize = 18f
+            setOnClickListener {
+                displaySavedItems()
+            }
+        }
+
+        categoryRow.addView(savedButton)
+
         categories.keys.forEach { category ->
             val button = Button(this).apply {
                 text = category
-                textSize = 12f
+                textSize = 18f
                 setOnClickListener {
-                    currentCategory = category
                     displayCategory(category)
                 }
             }
-            categoryRow.addView(
-                button,
-                LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.WRAP_CONTENT,
-                    ViewGroup.LayoutParams.WRAP_CONTENT
-                )
-            )
+
+            categoryRow.addView(button)
         }
 
         categoryScroll.addView(categoryRow)
-        root.addView(
-            categoryScroll,
-            LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-            )
-        )
+        root.addView(categoryScroll)
 
         val scrollView = ScrollView(this)
+
         emojiContainer = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
         }
 
-        scrollView.addView(
-            emojiContainer,
-            ViewGroup.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-            )
-        )
+        scrollView.addView(emojiContainer)
 
         root.addView(
             scrollView,
@@ -176,37 +170,28 @@ class MyEmojiInputMethodService : InputMethodService() {
             text = "↵"
             textSize = 20f
             setOnClickListener {
-                currentInputConnection?.sendKeyEvent(
-                    android.view.KeyEvent(
-                        android.view.KeyEvent.ACTION_DOWN,
-                        android.view.KeyEvent.KEYCODE_ENTER
-                    )
-                )
-                currentInputConnection?.sendKeyEvent(
-                    android.view.KeyEvent(
-                        android.view.KeyEvent.ACTION_UP,
-                        android.view.KeyEvent.KEYCODE_ENTER
-                    )
-                )
+                sendEnter()
             }
         }
 
         bottomRow.addView(
             spaceButton,
-            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+            LinearLayout.LayoutParams(0, -2, 1f)
         )
+
         bottomRow.addView(
             deleteButton,
-            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 0.3f)
+            LinearLayout.LayoutParams(0, -2, 0.35f)
         )
+
         bottomRow.addView(
             enterButton,
-            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 0.3f)
+            LinearLayout.LayoutParams(0, -2, 0.35f)
         )
 
         root.addView(bottomRow)
 
-        displayCategory("Smileys")
+        displayCategory("😀")
 
         return root
     }
@@ -216,14 +201,40 @@ class MyEmojiInputMethodService : InputMethodService() {
 
         val emojis = categories[category] ?: emptyList()
 
+        createEmojiGrid(emojis)
+    }
+
+    private fun displaySavedItems() {
+        emojiContainer.removeAllViews()
+
+        val savedItems = SavedItemStore.getSavedItems(this)
+
+        if (savedItems.isEmpty()) {
+            val emptyMessage = TextView(this).apply {
+                text = "⭐ No saved items yet.\n\nLong-press an emoji to save it here."
+                textSize = 18f
+                gravity = Gravity.CENTER
+                setPadding(24, 50, 24, 50)
+            }
+
+            emojiContainer.addView(emptyMessage)
+            return
+        }
+
+        createEmojiGrid(savedItems)
+    }
+
+    private fun createEmojiGrid(items: List<String>) {
         var row: LinearLayout? = null
 
-        emojis.forEachIndexed { index, emoji ->
+        items.forEachIndexed { index, item ->
+
             if (index % 8 == 0) {
                 row = LinearLayout(this).apply {
                     orientation = LinearLayout.HORIZONTAL
                     gravity = Gravity.CENTER
                 }
+
                 emojiContainer.addView(
                     row,
                     LinearLayout.LayoutParams(
@@ -234,12 +245,39 @@ class MyEmojiInputMethodService : InputMethodService() {
             }
 
             val button = TextView(this).apply {
-                text = emoji
+                text = item
                 textSize = 28f
                 gravity = Gravity.CENTER
                 setPadding(8, 10, 8, 10)
+
                 setOnClickListener {
-                    currentInputConnection?.commitText(emoji, 1)
+                    currentInputConnection?.commitText(item, 1)
+                }
+
+                setOnLongClickListener {
+                    SavedItemStore.saveItem(this@MyEmojiInputMethodService, item)
+
+                    Toast.makeText(
+                        this@MyEmojiInputMethodService,
+                        "⭐ Saved $item",
+                        Toast.LENGTH_SHORT
+                    ).show()
+
+                    true
+                }
+
+                setOnTouchListener { view, event ->
+                    if (event.action == MotionEvent.ACTION_DOWN) {
+                        view.alpha = 0.6f
+                    }
+
+                    if (event.action == MotionEvent.ACTION_UP ||
+                        event.action == MotionEvent.ACTION_CANCEL
+                    ) {
+                        view.alpha = 1f
+                    }
+
+                    false
                 }
             }
 
@@ -255,7 +293,23 @@ class MyEmojiInputMethodService : InputMethodService() {
     }
 
     private fun deletePreviousCharacter() {
-        val inputConnection: InputConnection = currentInputConnection ?: return
-        inputConnection.deleteSurroundingText(1, 0)
+        val connection: InputConnection = currentInputConnection ?: return
+        connection.deleteSurroundingText(1, 0)
+    }
+
+    private fun sendEnter() {
+        currentInputConnection?.sendKeyEvent(
+            android.view.KeyEvent(
+                android.view.KeyEvent.ACTION_DOWN,
+                android.view.KeyEvent.KEYCODE_ENTER
+            )
+        )
+
+        currentInputConnection?.sendKeyEvent(
+            android.view.KeyEvent(
+                android.view.KeyEvent.ACTION_UP,
+                android.view.KeyEvent.KEYCODE_ENTER
+            )
+        )
     }
 }
