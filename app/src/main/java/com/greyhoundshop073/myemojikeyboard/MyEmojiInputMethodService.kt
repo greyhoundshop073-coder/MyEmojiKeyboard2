@@ -3,9 +3,10 @@ package com.greyhoundshop073.myemojikeyboard
 import android.graphics.Color
 import android.inputmethodservice.InputMethodService
 import android.view.Gravity
-import android.view.MotionEvent
+import android.view.KeyEvent
 import android.view.View
 import android.view.ViewGroup
+import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputConnection
 import android.widget.Button
 import android.widget.HorizontalScrollView
@@ -16,9 +17,39 @@ import android.widget.Toast
 
 class MyEmojiInputMethodService : InputMethodService() {
 
-    private lateinit var emojiContainer: LinearLayout
+    private lateinit var root: LinearLayout
+    private lateinit var content: LinearLayout
 
-    private val categories = linkedMapOf(
+    private var mode = Mode.LETTERS
+    private var shiftOn = false
+    private var symbolsPage = false
+
+    private enum class Mode {
+        LETTERS,
+        EMOJI,
+        SYMBOLS,
+        SAVED
+    }
+
+    private val letters = listOf(
+        listOf("q", "w", "e", "r", "t", "y", "u", "i", "o", "p"),
+        listOf("a", "s", "d", "f", "g", "h", "j", "k", "l"),
+        listOf("z", "x", "c", "v", "b", "n", "m")
+    )
+
+    private val symbols = listOf(
+        listOf("1", "2", "3", "4", "5", "6", "7", "8", "9", "0"),
+        listOf("@", "#", "$", "_", "&", "-", "+", "(", ")"),
+        listOf(".", ",", "?", "!", "'", "\"", ":", ";", "/")
+    )
+
+    private val symbolPageTwo = listOf(
+        listOf("[", "]", "{", "}", "<", ">", "=", "%", "^"),
+        listOf("*", "~", "`", "|", "\\", "€", "£", "¥"),
+        listOf("©", "®", "™", "§", "°", "±", "×", "÷")
+    )
+
+    private val emojiCategories = linkedMapOf(
         "😀" to listOf(
             "😀","😃","😄","😁","😆","😅","😂","🤣",
             "😊","😇","🙂","🙃","😉","😌","😍","🥰",
@@ -64,6 +95,18 @@ class MyEmojiInputMethodService : InputMethodService() {
             "🍿","🍩","🍪","🎂","🍰","🧁","🍫","🍭",
             "☕","🧃","🥤","🧋","🍵"
         ),
+        "⚽" to listOf(
+            "⚽","🏀","🏈","⚾","🥎","🎾","🏐","🏉",
+            "🥏","🎱","🪀","🏓","🏸","🏒","🏑","🥍",
+            "🏏","⛳","🏹","🎣","🤿","🥊","🥋","🎽",
+            "🛹","🛼","🛷","⛸️","🥌","🎿","⛷️","🏂"
+        ),
+        "🚗" to listOf(
+            "🚗","🚕","🚙","🚌","🚎","🏎️","🚓","🚑",
+            "🚒","🚐","🛻","🚚","🚛","🚜","🛵","🏍️",
+            "🚲","🛴","✈️","🚀","🛸","🚁","🚢","⛵",
+            "🚤","🚂","🚆","🚇","🚉","🚊","🚝","🚞"
+        ),
         "✨" to listOf(
             "⭐","🌟","✨","💫","🔥","💎","👑","🎯",
             "✅","❌","❗","❓","‼️","⁉️","⚠️","⭕",
@@ -76,70 +119,74 @@ class MyEmojiInputMethodService : InputMethodService() {
     )
 
     override fun onCreateInputView(): View {
-        return createKeyboard()
+        buildKeyboard()
+        return root
     }
 
-    private fun createKeyboard(): View {
-        val root = LinearLayout(this).apply {
+    private fun buildKeyboard() {
+        root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(Color.WHITE)
-            setPadding(6, 6, 6, 6)
+            setBackgroundColor(Color.rgb(245, 245, 245))
+            setPadding(4, 4, 4, 4)
         }
 
-        val title = TextView(this).apply {
-            text = "😀  My Emoji Keyboard"
-            textSize = 18f
-            setTextColor(Color.BLACK)
-            gravity = Gravity.CENTER
-            setPadding(8, 6, 8, 8)
-        }
-
-        root.addView(title)
-
-        val categoryScroll = HorizontalScrollView(this).apply {
-            isHorizontalScrollBarEnabled = false
-        }
-
-        val categoryRow = LinearLayout(this).apply {
+        val toolbar = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
         }
 
-        val savedButton = Button(this).apply {
-            text = "⭐"
-            textSize = 18f
-            setOnClickListener {
-                displaySavedItems()
+        toolbar.addView(
+            smallButton("🔤") {
+                mode = Mode.LETTERS
+                render()
             }
-        }
+        )
 
-        categoryRow.addView(savedButton)
-
-        categories.keys.forEach { category ->
-            val button = Button(this).apply {
-                text = category
-                textSize = 18f
-                setOnClickListener {
-                    displayCategory(category)
-                }
+        toolbar.addView(
+            smallButton("😀") {
+                mode = Mode.EMOJI
+                render()
             }
+        )
 
-            categoryRow.addView(button)
-        }
+        toolbar.addView(
+            smallButton("⭐") {
+                mode = Mode.SAVED
+                render()
+            }
+        )
 
-        categoryScroll.addView(categoryRow)
-        root.addView(categoryScroll)
+        toolbar.addView(
+            smallButton("123") {
+                mode = Mode.SYMBOLS
+                render()
+            }
+        )
 
-        val scrollView = ScrollView(this)
-
-        emojiContainer = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER
-        }
-
-        scrollView.addView(emojiContainer)
+        toolbar.addView(
+            smallButton("📋") {
+                showClipboardInfo()
+            }
+        )
 
         root.addView(
-            scrollView,
+            toolbar,
+            LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+        )
+
+        content = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+        }
+
+        val scroll = ScrollView(this).apply {
+            addView(content)
+        }
+
+        root.addView(
+            scroll,
             LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 0,
@@ -147,115 +194,288 @@ class MyEmojiInputMethodService : InputMethodService() {
             )
         )
 
-        val bottomRow = LinearLayout(this).apply {
+        render()
+    }
+
+    private fun render() {
+        content.removeAllViews()
+
+        when (mode) {
+            Mode.LETTERS -> renderLetters()
+            Mode.EMOJI -> renderEmojis()
+            Mode.SYMBOLS -> renderSymbols()
+            Mode.SAVED -> renderSaved()
+        }
+    }
+
+    private fun renderLetters() {
+        letters.forEachIndexed { rowIndex, row ->
+            val rowView = keyboardRow()
+
+            if (rowIndex == 1) {
+                rowView.setPadding(20, 2, 20, 2)
+            }
+
+            row.forEach { letter ->
+                val display = if (shiftOn) letter.uppercase() else letter
+
+                rowView.addView(
+                    keyButton(display) {
+                        commitText(display)
+                    },
+                    keyParams()
+                )
+            }
+
+            content.addView(rowView)
+        }
+
+        val bottom = keyboardRow()
+
+        bottom.addView(
+            keyButton(if (shiftOn) "⇧" else "↑") {
+                shiftOn = !shiftOn
+                render()
+            },
+            keyParams(1.2f)
+        )
+
+        bottom.addView(
+            keyButton("🌐") {
+                mode = Mode.EMOJI
+                render()
+            },
+            keyParams(1f)
+        )
+
+        bottom.addView(
+            keyButton("SPACE") {
+                commitText(" ")
+            },
+            keyParams(3.4f)
+        )
+
+        bottom.addView(
+            keyButton("⌫") {
+                deletePreviousCharacter()
+            },
+            keyParams(1.2f)
+        )
+
+        bottom.addView(
+            keyButton("↵") {
+                sendEnter()
+            },
+            keyParams(1.2f)
+        )
+
+        content.addView(bottom)
+    }
+
+    private fun renderSymbols() {
+        val data = if (symbolsPage) symbolPageTwo else symbols
+
+        data.forEach { row ->
+            val rowView = keyboardRow()
+
+            row.forEach { symbol ->
+                rowView.addView(
+                    keyButton(symbol) {
+                        commitText(symbol)
+                    },
+                    keyParams()
+                )
+            }
+
+            content.addView(rowView)
+        }
+
+        val bottom = keyboardRow()
+
+        bottom.addView(
+            keyButton(if (symbolsPage) "1/2" else "2/2") {
+                symbolsPage = !symbolsPage
+                render()
+            },
+            keyParams(1.4f)
+        )
+
+        bottom.addView(
+            keyButton("ABC") {
+                mode = Mode.LETTERS
+                render()
+            },
+            keyParams(1.3f)
+        )
+
+        bottom.addView(
+            keyButton("SPACE") {
+                commitText(" ")
+            },
+            keyParams(3f)
+        )
+
+        bottom.addView(
+            keyButton("⌫") {
+                deletePreviousCharacter()
+            },
+            keyParams(1.2f)
+        )
+
+        bottom.addView(
+            keyButton("↵") {
+                sendEnter()
+            },
+            keyParams(1.2f)
+        )
+
+        content.addView(bottom)
+    }
+
+    private fun renderEmojis() {
+        val categoryBar = HorizontalScrollView(this)
+
+        val categories = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
         }
 
-        val spaceButton = Button(this).apply {
-            text = "SPACE"
-            setOnClickListener {
-                currentInputConnection?.commitText(" ", 1)
-            }
+        emojiCategories.keys.forEach { category ->
+            categories.addView(
+                smallButton(category) {
+                    showEmojiCategory(category)
+                }
+            )
         }
 
-        val deleteButton = Button(this).apply {
-            text = "⌫"
-            textSize = 20f
-            setOnClickListener {
+        categoryBar.addView(categories)
+        content.addView(categoryBar)
+
+        showEmojiCategory(emojiCategories.keys.first())
+    }
+
+    private fun showEmojiCategory(category: String) {
+        val existingCategoryBar = content.getChildAt(0)
+
+        content.removeAllViews()
+
+        if (existingCategoryBar != null) {
+            content.addView(existingCategoryBar)
+        }
+
+        createItemGrid(emojiCategories[category] ?: emptyList())
+
+        val bottom = keyboardRow()
+
+        bottom.addView(
+            keyButton("🔤") {
+                mode = Mode.LETTERS
+                render()
+            },
+            keyParams(1.2f)
+        )
+
+        bottom.addView(
+            keyButton("⭐") {
+                mode = Mode.SAVED
+                render()
+            },
+            keyParams(1.2f)
+        )
+
+        bottom.addView(
+            keyButton("SPACE") {
+                commitText(" ")
+            },
+            keyParams(3f)
+        )
+
+        bottom.addView(
+            keyButton("⌫") {
                 deletePreviousCharacter()
-            }
-        }
-
-        val enterButton = Button(this).apply {
-            text = "↵"
-            textSize = 20f
-            setOnClickListener {
-                sendEnter()
-            }
-        }
-
-        bottomRow.addView(
-            spaceButton,
-            LinearLayout.LayoutParams(0, -2, 1f)
+            },
+            keyParams(1.2f)
         )
 
-        bottomRow.addView(
-            deleteButton,
-            LinearLayout.LayoutParams(0, -2, 0.35f)
-        )
-
-        bottomRow.addView(
-            enterButton,
-            LinearLayout.LayoutParams(0, -2, 0.35f)
-        )
-
-        root.addView(bottomRow)
-
-        displayCategory("😀")
-
-        return root
+        content.addView(bottom)
     }
 
-    private fun displayCategory(category: String) {
-        emojiContainer.removeAllViews()
+    private fun renderSaved() {
+        val saved = SavedItemStore.getSavedItems(this)
 
-        val emojis = categories[category] ?: emptyList()
-
-        createEmojiGrid(emojis)
-    }
-
-    private fun displaySavedItems() {
-        emojiContainer.removeAllViews()
-
-        val savedItems = SavedItemStore.getSavedItems(this)
-
-        if (savedItems.isEmpty()) {
-            val emptyMessage = TextView(this).apply {
-                text = "⭐ No saved items yet.\n\nLong-press an emoji to save it here."
+        if (saved.isEmpty()) {
+            val message = TextView(this).apply {
+                text = "⭐ Your saved items will appear here.\n\nLong-press an emoji or symbol to save it."
                 textSize = 18f
                 gravity = Gravity.CENTER
-                setPadding(24, 50, 24, 50)
+                setPadding(20, 60, 20, 60)
             }
 
-            emojiContainer.addView(emptyMessage)
-            return
+            content.addView(message)
+        } else {
+            createItemGrid(saved)
         }
 
-        createEmojiGrid(savedItems)
+        val bottom = keyboardRow()
+
+        bottom.addView(
+            keyButton("🔤") {
+                mode = Mode.LETTERS
+                render()
+            },
+            keyParams(1.2f)
+        )
+
+        bottom.addView(
+            keyButton("😀") {
+                mode = Mode.EMOJI
+                render()
+            },
+            keyParams(1.2f)
+        )
+
+        bottom.addView(
+            keyButton("SPACE") {
+                commitText(" ")
+            },
+            keyParams(3f)
+        )
+
+        bottom.addView(
+            keyButton("⌫") {
+                deletePreviousCharacter()
+            },
+            keyParams(1.2f)
+        )
+
+        content.addView(bottom)
     }
 
-    private fun createEmojiGrid(items: List<String>) {
+    private fun createItemGrid(items: List<String>) {
         var row: LinearLayout? = null
 
         items.forEachIndexed { index, item ->
-
             if (index % 8 == 0) {
-                row = LinearLayout(this).apply {
-                    orientation = LinearLayout.HORIZONTAL
-                    gravity = Gravity.CENTER
-                }
-
-                emojiContainer.addView(
-                    row,
-                    LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT
-                    )
-                )
+                row = keyboardRow()
+                content.addView(row)
             }
 
             val button = TextView(this).apply {
                 text = item
                 textSize = 28f
                 gravity = Gravity.CENTER
-                setPadding(8, 10, 8, 10)
+                setPadding(4, 10, 4, 10)
+
+                setBackgroundColor(Color.WHITE)
 
                 setOnClickListener {
-                    currentInputConnection?.commitText(item, 1)
+                    commitText(item)
                 }
 
                 setOnLongClickListener {
-                    SavedItemStore.saveItem(this@MyEmojiInputMethodService, item)
+                    SavedItemStore.saveItem(
+                        this@MyEmojiInputMethodService,
+                        item
+                    )
 
                     Toast.makeText(
                         this@MyEmojiInputMethodService,
@@ -264,20 +484,6 @@ class MyEmojiInputMethodService : InputMethodService() {
                     ).show()
 
                     true
-                }
-
-                setOnTouchListener { view, event ->
-                    if (event.action == MotionEvent.ACTION_DOWN) {
-                        view.alpha = 0.6f
-                    }
-
-                    if (event.action == MotionEvent.ACTION_UP ||
-                        event.action == MotionEvent.ACTION_CANCEL
-                    ) {
-                        view.alpha = 1f
-                    }
-
-                    false
                 }
             }
 
@@ -292,24 +498,93 @@ class MyEmojiInputMethodService : InputMethodService() {
         }
     }
 
+    private fun keyboardRow(): LinearLayout {
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            setPadding(2, 2, 2, 2)
+        }
+    }
+
+    private fun keyButton(
+        text: String,
+        action: () -> Unit
+    ): Button {
+        return Button(this).apply {
+            this.text = text
+            textSize = if (text.length > 4) 13f else 18f
+            isAllCaps = false
+            setOnClickListener {
+                action()
+            }
+        }
+    }
+
+    private fun smallButton(
+        text: String,
+        action: () -> Unit
+    ): Button {
+        return Button(this).apply {
+            this.text = text
+            textSize = 15f
+            isAllCaps = false
+            setOnClickListener {
+                action()
+            }
+        }
+    }
+
+    private fun keyParams(weight: Float = 1f): LinearLayout.LayoutParams {
+        return LinearLayout.LayoutParams(
+            0,
+            58,
+            weight
+        ).apply {
+            setMargins(2, 2, 2, 2)
+        }
+    }
+
+    private fun commitText(text: String) {
+        currentInputConnection?.commitText(text, 1)
+    }
+
     private fun deletePreviousCharacter() {
         val connection: InputConnection = currentInputConnection ?: return
-        connection.deleteSurroundingText(1, 0)
+
+        val selected = connection.getSelectedText(0)
+
+        if (!selected.isNullOrEmpty()) {
+            connection.commitText("", 1)
+            return
+        }
+
+        connection.deleteSurroundingTextInCodePoints(1, 0)
     }
 
     private fun sendEnter() {
-        currentInputConnection?.sendKeyEvent(
-            android.view.KeyEvent(
-                android.view.KeyEvent.ACTION_DOWN,
-                android.view.KeyEvent.KEYCODE_ENTER
-            )
-        )
+        val connection = currentInputConnection ?: return
+        val editorInfo: EditorInfo? = currentInputEditorInfo
 
-        currentInputConnection?.sendKeyEvent(
-            android.view.KeyEvent(
-                android.view.KeyEvent.ACTION_UP,
-                android.view.KeyEvent.KEYCODE_ENTER
-            )
-        )
+        when (editorInfo?.imeOptions?.and(EditorInfo.IME_MASK_ACTION)) {
+            EditorInfo.IME_ACTION_DONE,
+            EditorInfo.IME_ACTION_GO,
+            EditorInfo.IME_ACTION_NEXT,
+            EditorInfo.IME_ACTION_SEND,
+            EditorInfo.IME_ACTION_SEARCH -> {
+                sendDefaultEditorAction(true)
+            }
+
+            else -> {
+                sendKeyChar('\n')
+            }
+        }
+    }
+
+    private fun showClipboardInfo() {
+        Toast.makeText(
+            this,
+            "Clipboard manager will be added to the next core update.",
+            Toast.LENGTH_SHORT
+        ).show()
     }
 }
