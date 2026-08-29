@@ -1,14 +1,17 @@
 package com.greyhoundshop073.myemojikeyboard
 
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.graphics.Color
 import android.inputmethodservice.InputMethodService
+import android.text.InputType
 import android.view.Gravity
-import android.view.KeyEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputConnection
 import android.widget.Button
+import android.widget.EditText
 import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -19,102 +22,138 @@ class MyEmojiInputMethodService : InputMethodService() {
 
     private lateinit var root: LinearLayout
     private lateinit var content: LinearLayout
+    private lateinit var suggestions: LinearLayout
 
-    private var mode = Mode.LETTERS
+    private var mode = KeyboardMode.LETTERS
     private var shiftOn = false
+    private var capsLock = false
     private var symbolsPage = false
 
-    private enum class Mode {
+    private enum class KeyboardMode {
         LETTERS,
-        EMOJI,
         SYMBOLS,
-        SAVED
+        EMOJI,
+        SAVED,
+        CLIPBOARD
     }
 
-    private val letters = listOf(
+    private val recentEmojis = mutableListOf<String>()
+
+    private val letterRows = listOf(
         listOf("q", "w", "e", "r", "t", "y", "u", "i", "o", "p"),
         listOf("a", "s", "d", "f", "g", "h", "j", "k", "l"),
         listOf("z", "x", "c", "v", "b", "n", "m")
     )
 
-    private val symbols = listOf(
+    private val symbolRows = listOf(
         listOf("1", "2", "3", "4", "5", "6", "7", "8", "9", "0"),
         listOf("@", "#", "$", "_", "&", "-", "+", "(", ")"),
         listOf(".", ",", "?", "!", "'", "\"", ":", ";", "/")
     )
 
-    private val symbolPageTwo = listOf(
+    private val symbolRowsTwo = listOf(
         listOf("[", "]", "{", "}", "<", ">", "=", "%", "^"),
         listOf("*", "~", "`", "|", "\\", "€", "£", "¥"),
         listOf("©", "®", "™", "§", "°", "±", "×", "÷")
     )
 
     private val emojiCategories = linkedMapOf(
+
         "😀" to listOf(
-            "😀","😃","😄","😁","😆","😅","😂","🤣",
-            "😊","😇","🙂","🙃","😉","😌","😍","🥰",
-            "😘","😗","😙","😚","😋","😛","😝","😜",
-            "🤪","🤨","🧐","🤓","😎","🤩","🥳","😏",
-            "😒","😞","😔","😟","😕","🙁","☹️","😣",
-            "😖","😫","😩","🥺","😢","😭","😤","😠",
-            "😡","🤬","🤯","😳","🥵","🥶","😱","😨",
-            "😰","😥","😓","🤗","🤔","🤭","🫢","🤫",
-            "😶","🫠","😐","😑","😬","🙄","😯","😮",
-            "😲","🥱","😴","🤤"
+            "😀", "😃", "😄", "😁", "😆", "😅", "😂", "🤣",
+            "😊", "😇", "🙂", "🙃", "😉", "😌", "😍", "🥰",
+            "😘", "😗", "😙", "😚", "😋", "😛", "😝", "😜",
+            "🤪", "🤨", "🧐", "🤓", "😎", "🤩", "🥳", "😏",
+            "😒", "😞", "😔", "😟", "😕", "🙁", "☹️", "😣",
+            "😖", "😫", "😩", "🥺", "😢", "😭", "😤", "😠",
+            "😡", "🤬", "🤯", "😳", "🥵", "🥶", "😱", "😨",
+            "😰", "😥", "😓", "🤗", "🤔", "🤭", "🫢", "🤫",
+            "😶", "🫠", "😐", "😑", "😬", "🙄", "😯", "😮",
+            "😲", "🥱", "😴", "🤤", "😪", "😵", "🤐", "🤢",
+            "🤮", "🤧", "😷", "🤒", "🤕", "🤑", "🤠", "😈",
+            "👿", "👹", "👺", "🤡", "💩", "👻", "💀", "☠️",
+            "👽", "👾", "🤖", "🎃"
         ),
-        "👋" to listOf(
-            "👋","🤚","🖐️","✋","🖖","👌","🤏","✌️",
-            "🤞","🤟","🤘","🤙","👈","👉","👆","👇",
-            "☝️","👍","👎","✊","👊","🤲","👏","🙌",
-            "👐","🤝","🙏","✍️","💅","🤳","💪","🫶",
-            "👶","🧒","👦","👧","🧑","👨","👩","🧔",
-            "👵","👴","🙍","🙎","🙅","🙆","💁","🙋"
-        ),
+
         "❤️" to listOf(
-            "❤️","🧡","💛","💚","💙","💜","🖤","🩷",
-            "🩵","🩶","🤍","🤎","💔","❤️‍🔥","❤️‍🩹",
-            "❣️","💕","💞","💓","💗","💖","💘","💝",
-            "💟","💌","💋","💯","💢","💥","💫","💦"
+            "❤️", "🧡", "💛", "💚", "💙", "💜", "🖤", "🩷",
+            "🩵", "🩶", "🤍", "🤎", "💔", "❤️‍🔥", "❤️‍🩹",
+            "❣️", "💕", "💞", "💓", "💗", "💖", "💘", "💝",
+            "💟", "💌", "💋", "💯", "💢", "💥", "💫", "💦",
+            "💨", "💤", "💮", "💯", "💬", "💭", "💎", "💍"
         ),
+
+        "👋" to listOf(
+            "👋", "🤚", "🖐️", "✋", "🖖", "👌", "🤏", "✌️",
+            "🤞", "🤟", "🤘", "🤙", "👈", "👉", "👆", "👇",
+            "☝️", "👍", "👎", "✊", "👊", "🤲", "👏", "🙌",
+            "👐", "🤝", "🙏", "✍️", "💅", "🤳", "💪", "🫶",
+            "👶", "🧒", "👦", "👧", "🧑", "👨", "👩", "🧔",
+            "👵", "👴", "🙍", "🙎", "🙅", "🙆", "💁", "🙋",
+            "🧏", "🙇", "🤦", "🤷", "💆", "💇", "🚶", "🏃"
+        ),
+
         "🐶" to listOf(
-            "🐶","🐱","🐭","🐹","🐰","🦊","🐻","🐼",
-            "🐨","🐯","🦁","🐮","🐷","🐸","🐵","🙈",
-            "🙉","🙊","🐔","🐧","🐦","🐤","🐣","🦆",
-            "🦅","🦉","🦇","🐺","🐗","🐴","🦄","🐝",
-            "🐛","🦋","🐌","🐞","🐜","🪲","🕷️","🦂",
-            "🐢","🐍","🦎","🦖","🦕","🐙","🦑","🦀",
-            "🐠","🐟","🐡","🦈","🐬","🐳","🐋","🦭"
+            "🐶", "🐱", "🐭", "🐹", "🐰", "🦊", "🐻", "🐼",
+            "🐨", "🐯", "🦁", "🐮", "🐷", "🐸", "🐵", "🙈",
+            "🙉", "🙊", "🐔", "🐧", "🐦", "🐤", "🐣", "🦆",
+            "🦅", "🦉", "🦇", "🐺", "🐗", "🐴", "🦄", "🐝",
+            "🐛", "🦋", "🐌", "🐞", "🐜", "🪲", "🕷️", "🦂",
+            "🐢", "🐍", "🦎", "🦖", "🦕", "🐙", "🦑", "🦀",
+            "🐠", "🐟", "🐡", "🦈", "🐬", "🐳", "🐋", "🦭",
+            "🐊", "🐘", "🦏", "🦛", "🦒", "🦘", "🦬", "🐪"
         ),
+
         "🍔" to listOf(
-            "🍎","🍐","🍊","🍋","🍌","🍉","🍇","🍓",
-            "🫐","🍈","🍒","🍑","🥭","🍍","🥥","🥝",
-            "🍅","🍆","🥑","🥦","🥬","🥒","🌶️","🫑",
-            "🌽","🥕","🧄","🧅","🥔","🍞","🥐","🥖",
-            "🧀","🥚","🍳","🧈","🥞","🧇","🥓","🥩",
-            "🍗","🍔","🍟","🍕","🌭","🌮","🌯","🥗",
-            "🍿","🍩","🍪","🎂","🍰","🧁","🍫","🍭",
-            "☕","🧃","🥤","🧋","🍵"
+            "🍎", "🍐", "🍊", "🍋", "🍌", "🍉", "🍇", "🍓",
+            "🫐", "🍈", "🍒", "🍑", "🥭", "🍍", "🥥", "🥝",
+            "🍅", "🍆", "🥑", "🥦", "🥬", "🥒", "🌶️", "🫑",
+            "🌽", "🥕", "🧄", "🧅", "🥔", "🍞", "🥐", "🥖",
+            "🧀", "🥚", "🍳", "🧈", "🥞", "🧇", "🥓", "🥩",
+            "🍗", "🍔", "🍟", "🍕", "🌭", "🌮", "🌯", "🥗",
+            "🍿", "🍩", "🍪", "🎂", "🍰", "🧁", "🍫", "🍭",
+            "☕", "🧃", "🥤", "🧋", "🍵", "🍺", "🍷"
         ),
+
         "⚽" to listOf(
-            "⚽","🏀","🏈","⚾","🥎","🎾","🏐","🏉",
-            "🥏","🎱","🪀","🏓","🏸","🏒","🏑","🥍",
-            "🏏","⛳","🏹","🎣","🤿","🥊","🥋","🎽",
-            "🛹","🛼","🛷","⛸️","🥌","🎿","⛷️","🏂"
+            "⚽", "🏀", "🏈", "⚾", "🥎", "🎾", "🏐", "🏉",
+            "🥏", "🎱", "🪀", "🏓", "🏸", "🏒", "🏑", "🥍",
+            "🏏", "⛳", "🏹", "🎣", "🤿", "🥊", "🥋", "🎽",
+            "🛹", "🛼", "🛷", "⛸️", "🥌", "🎿", "⛷️", "🏂",
+            "🏋️", "🤼", "🤸", "⛹️", "🤺", "🏇", "🏄", "🏊"
         ),
+
         "🚗" to listOf(
-            "🚗","🚕","🚙","🚌","🚎","🏎️","🚓","🚑",
-            "🚒","🚐","🛻","🚚","🚛","🚜","🛵","🏍️",
-            "🚲","🛴","✈️","🚀","🛸","🚁","🚢","⛵",
-            "🚤","🚂","🚆","🚇","🚉","🚊","🚝","🚞"
+            "🚗", "🚕", "🚙", "🚌", "🚎", "🏎️", "🚓", "🚑",
+            "🚒", "🚐", "🛻", "🚚", "🚛", "🚜", "🛵", "🏍️",
+            "🚲", "🛴", "✈️", "🚀", "🛸", "🚁", "🚢", "⛵",
+            "🚤", "🚂", "🚆", "🚇", "🚉", "🚊", "🚝", "🚞",
+            "🛶", "🛟", "🗺️", "🗿", "🗽", "🗼", "🏰", "🏠"
         ),
+
+        "🌸" to listOf(
+            "🌸", "🌹", "🌺", "🌻", "🌼", "🌷", "🪻", "🌱",
+            "🌲", "🌳", "🌴", "🌵", "🌾", "🌿", "☘️", "🍀",
+            "🍁", "🍂", "🍃", "🌊", "🔥", "⭐", "🌟", "✨",
+            "☀️", "🌤️", "⛅", "🌧️", "⛈️", "🌩️", "❄️", "☃️",
+            "🌈", "🌙", "🌎", "🌍", "🌏", "🌑", "🌕", "🌞"
+        ),
+
         "✨" to listOf(
-            "⭐","🌟","✨","💫","🔥","💎","👑","🎯",
-            "✅","❌","❗","❓","‼️","⁉️","⚠️","⭕",
-            "➕","➖","✖️","➗","♾️","💯","©️","®️",
-            "™️","✔️","☑️","🔴","🟠","🟡","🟢","🔵",
-            "🟣","⚫","⚪","🟤","🔷","🔶","🔺","🔻",
-            "🔰","♻️","⚡","☀️","☁️","☂️","☮️",
-            "☯️","✝️","☪️","🕉️","☸️","✡️","🔱","⚜️"
+            "⭐", "🌟", "✨", "💫", "🔥", "💎", "👑", "🎯",
+            "✅", "❌", "❗", "❓", "‼️", "⁉️", "⚠️", "⭕",
+            "➕", "➖", "✖️", "➗", "♾️", "💯", "©️", "®️",
+            "™️", "✔️", "☑️", "🔴", "🟠", "🟡", "🟢", "🔵",
+            "🟣", "⚫", "⚪", "🟤", "🔷", "🔶", "🔺", "🔻",
+            "🔰", "♻️", "⚡", "☀️", "☁️", "☂️", "☮️",
+            "☯️", "✝️", "☪️", "🕉️", "☸️", "✡️", "🔱", "⚜️"
+        ),
+
+        "🎉" to listOf(
+            "🎉", "🎊", "🎈", "🎁", "🎂", "🎄", "🎃", "🎗️",
+            "🎟️", "🎫", "🏆", "🏅", "🥇", "🥈", "🥉", "🎖️",
+            "🎵", "🎶", "🎤", "🎧", "🎸", "🎹", "🥁", "🎺",
+            "🎻", "🎬", "🎨", "🎭", "🎮", "🕹️", "🎲", "🧩"
         )
     )
 
@@ -123,11 +162,57 @@ class MyEmojiInputMethodService : InputMethodService() {
         return root
     }
 
+    override fun onStartInput(
+        attribute: EditorInfo,
+        restarting: Boolean
+    ) {
+        super.onStartInput(attribute, restarting)
+
+        mode = KeyboardMode.LETTERS
+        symbolsPage = false
+
+        val inputClass =
+            attribute.inputType and InputType.TYPE_MASK_CLASS
+
+        if (inputClass == InputType.TYPE_CLASS_NUMBER ||
+            inputClass == InputType.TYPE_CLASS_DATETIME
+        ) {
+            mode = KeyboardMode.SYMBOLS
+        }
+
+        if (inputClass == InputType.TYPE_CLASS_TEXT) {
+            val variation =
+                attribute.inputType and InputType.TYPE_MASK_VARIATION
+
+            if (variation == InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS ||
+                variation == InputType.TYPE_TEXT_VARIATION_WEB_EMAIL_ADDRESS
+            ) {
+                mode = KeyboardMode.LETTERS
+            }
+        }
+
+        updateCapitalization(attribute)
+    }
+
+    private fun updateCapitalization(info: EditorInfo?) {
+        if (info == null) return
+
+        val caps =
+            info.initialCapsMode and
+                    (InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS or
+                            InputType.TYPE_TEXT_FLAG_CAP_WORDS or
+                            InputType.TYPE_TEXT_FLAG_CAP_SENTENCES)
+
+        shiftOn = caps != 0
+        capsLock = false
+    }
+
     private fun buildKeyboard() {
+
         root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(Color.rgb(245, 245, 245))
-            setPadding(4, 4, 4, 4)
+            setBackgroundColor(Color.rgb(238, 238, 238))
+            setPadding(dp(4), dp(4), dp(4), dp(4))
         }
 
         val toolbar = LinearLayout(this).apply {
@@ -136,36 +221,37 @@ class MyEmojiInputMethodService : InputMethodService() {
         }
 
         toolbar.addView(
-            smallButton("🔤") {
-                mode = Mode.LETTERS
+            topButton("🔤") {
+                mode = KeyboardMode.LETTERS
                 render()
             }
         )
 
         toolbar.addView(
-            smallButton("😀") {
-                mode = Mode.EMOJI
+            topButton("😀") {
+                mode = KeyboardMode.EMOJI
                 render()
             }
         )
 
         toolbar.addView(
-            smallButton("⭐") {
-                mode = Mode.SAVED
+            topButton("⭐") {
+                mode = KeyboardMode.SAVED
                 render()
             }
         )
 
         toolbar.addView(
-            smallButton("123") {
-                mode = Mode.SYMBOLS
+            topButton("📋") {
+                mode = KeyboardMode.CLIPBOARD
                 render()
             }
         )
 
         toolbar.addView(
-            smallButton("📋") {
-                showClipboardInfo()
+            topButton("123") {
+                mode = KeyboardMode.SYMBOLS
+                render()
             }
         )
 
@@ -173,7 +259,20 @@ class MyEmojiInputMethodService : InputMethodService() {
             toolbar,
             LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
+                dp(48)
+            )
+        )
+
+        suggestions = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+        }
+
+        root.addView(
+            suggestions,
+            LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                dp(42)
             )
         )
 
@@ -182,6 +281,7 @@ class MyEmojiInputMethodService : InputMethodService() {
         }
 
         val scroll = ScrollView(this).apply {
+            isFillViewport = true
             addView(content)
         }
 
@@ -198,30 +298,156 @@ class MyEmojiInputMethodService : InputMethodService() {
     }
 
     private fun render() {
+
         content.removeAllViews()
+        suggestions.removeAllViews()
 
         when (mode) {
-            Mode.LETTERS -> renderLetters()
-            Mode.EMOJI -> renderEmojis()
-            Mode.SYMBOLS -> renderSymbols()
-            Mode.SAVED -> renderSaved()
+
+            KeyboardMode.LETTERS -> {
+                renderSuggestions()
+                renderLetters()
+            }
+
+            KeyboardMode.SYMBOLS -> {
+                renderSymbols()
+            }
+
+            KeyboardMode.EMOJI -> {
+                renderEmojis()
+            }
+
+            KeyboardMode.SAVED -> {
+                renderSaved()
+            }
+
+            KeyboardMode.CLIPBOARD -> {
+                renderClipboard()
+            }
+        }
+    }
+
+    private fun renderSuggestions() {
+
+        val connection = currentInputConnection ?: return
+
+        val before =
+            connection.getTextBeforeCursor(40, 0)?.toString() ?: ""
+
+        val currentWord =
+            before.takeLastWhile { !it.isWhitespace() }
+
+        val candidates = mutableListOf<String>()
+
+        if (currentWord.isNotEmpty()) {
+
+            val common = listOf(
+                "the",
+                "this",
+                "that",
+                "and",
+                "you",
+                "your",
+                "are",
+                "with",
+                "have",
+                "for",
+                "from",
+                "good",
+                "morning",
+                "hello",
+                "thank",
+                "thanks",
+                "please",
+                "love",
+                "today",
+                "tomorrow"
+            )
+
+            common
+                .filter {
+                    it.startsWith(
+                        currentWord.lowercase()
+                    )
+                }
+                .take(3)
+                .forEach {
+                    candidates.add(it)
+                }
+        } else {
+            candidates.add("😀")
+            candidates.add("❤️")
+            candidates.add("✨")
+        }
+
+        candidates.forEach { candidate ->
+
+            val button = Button(this).apply {
+                text = candidate
+                textSize = 13f
+                isAllCaps = false
+
+                setOnClickListener {
+
+                    if (currentWord.isNotEmpty()) {
+                        connection.deleteSurroundingText(
+                            currentWord.length,
+                            0
+                        )
+                    }
+
+                    connection.commitText(
+                        candidate,
+                        1
+                    )
+                }
+            }
+
+            suggestions.addView(
+                button,
+                LinearLayout.LayoutParams(
+                    0,
+                    dp(40),
+                    1f
+                )
+            )
         }
     }
 
     private fun renderLetters() {
-        letters.forEachIndexed { rowIndex, row ->
+
+        letterRows.forEachIndexed { rowIndex, row ->
+
             val rowView = keyboardRow()
 
             if (rowIndex == 1) {
-                rowView.setPadding(20, 2, 20, 2)
+                rowView.setPadding(
+                    dp(12),
+                    dp(2),
+                    dp(12),
+                    dp(2)
+                )
             }
 
             row.forEach { letter ->
-                val display = if (shiftOn) letter.uppercase() else letter
+
+                val display =
+                    if (shiftOn || capsLock) {
+                        letter.uppercase()
+                    } else {
+                        letter
+                    }
 
                 rowView.addView(
                     keyButton(display) {
                         commitText(display)
+
+                        if (shiftOn && !capsLock) {
+                            shiftOn = false
+                            render()
+                        } else {
+                            renderSuggestions()
+                        }
                     },
                     keyParams()
                 )
@@ -233,52 +459,81 @@ class MyEmojiInputMethodService : InputMethodService() {
         val bottom = keyboardRow()
 
         bottom.addView(
-            keyButton(if (shiftOn) "⇧" else "↑") {
-                shiftOn = !shiftOn
+            keyButton(
+                if (capsLock) "⇧" else "↑"
+            ) {
+                if (shiftOn && !capsLock) {
+                    capsLock = true
+                    shiftOn = true
+                } else if (capsLock) {
+                    capsLock = false
+                    shiftOn = false
+                } else {
+                    shiftOn = true
+                }
+
                 render()
             },
-            keyParams(1.2f)
+            keyParams(1.15f)
         )
 
         bottom.addView(
-            keyButton("🌐") {
-                mode = Mode.EMOJI
+            keyButton("123") {
+                mode = KeyboardMode.SYMBOLS
                 render()
             },
-            keyParams(1f)
+            keyParams(1.15f)
+        )
+
+        bottom.addView(
+            keyButton("😀") {
+                mode = KeyboardMode.EMOJI
+                render()
+            },
+            keyParams(1.15f)
         )
 
         bottom.addView(
             keyButton("SPACE") {
                 commitText(" ")
+                renderSuggestions()
             },
-            keyParams(3.4f)
+            keyParams(3.2f)
         )
 
         bottom.addView(
             keyButton("⌫") {
                 deletePreviousCharacter()
+                renderSuggestions()
             },
-            keyParams(1.2f)
+            keyParams(1.15f)
         )
 
         bottom.addView(
-            keyButton("↵") {
+            keyButton(actionKeyLabel()) {
                 sendEnter()
             },
-            keyParams(1.2f)
+            keyParams(1.15f)
         )
 
         content.addView(bottom)
     }
 
     private fun renderSymbols() {
-        val data = if (symbolsPage) symbolPageTwo else symbols
 
-        data.forEach { row ->
+        val rows =
+            if (symbolsPage) {
+                symbolRowsTwo
+            } else {
+                symbolRows
+            }
+
+        rows.forEach { row ->
+
             val rowView = keyboardRow()
 
             row.forEach { symbol ->
+
                 rowView.addView(
                     keyButton(symbol) {
                         commitText(symbol)
@@ -293,19 +548,29 @@ class MyEmojiInputMethodService : InputMethodService() {
         val bottom = keyboardRow()
 
         bottom.addView(
-            keyButton(if (symbolsPage) "1/2" else "2/2") {
+            keyButton(
+                if (symbolsPage) "1/2" else "2/2"
+            ) {
                 symbolsPage = !symbolsPage
                 render()
             },
-            keyParams(1.4f)
+            keyParams(1.25f)
         )
 
         bottom.addView(
             keyButton("ABC") {
-                mode = Mode.LETTERS
+                mode = KeyboardMode.LETTERS
                 render()
             },
-            keyParams(1.3f)
+            keyParams(1.25f)
+        )
+
+        bottom.addView(
+            keyButton("😀") {
+                mode = KeyboardMode.EMOJI
+                render()
+            },
+            keyParams(1.25f)
         )
 
         bottom.addView(
@@ -318,13 +583,6 @@ class MyEmojiInputMethodService : InputMethodService() {
         bottom.addView(
             keyButton("⌫") {
                 deletePreviousCharacter()
-            },
-            keyParams(1.2f)
-        )
-
-        bottom.addView(
-            keyButton("↵") {
-                sendEnter()
             },
             keyParams(1.2f)
         )
@@ -333,53 +591,121 @@ class MyEmojiInputMethodService : InputMethodService() {
     }
 
     private fun renderEmojis() {
-        val categoryBar = HorizontalScrollView(this)
 
-        val categories = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-        }
+        val categoryScroll =
+            HorizontalScrollView(this).apply {
+                isHorizontalScrollBarEnabled = false
+            }
+
+        val categoryRow =
+            LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+            }
+
+        categoryRow.addView(
+            topButton("🕘") {
+                renderRecentEmojis()
+            }
+        )
 
         emojiCategories.keys.forEach { category ->
-            categories.addView(
-                smallButton(category) {
+
+            categoryRow.addView(
+                topButton(category) {
                     showEmojiCategory(category)
                 }
             )
         }
 
-        categoryBar.addView(categories)
-        content.addView(categoryBar)
+        categoryScroll.addView(categoryRow)
 
-        showEmojiCategory(emojiCategories.keys.first())
+        content.addView(
+            categoryScroll,
+            LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                dp(48)
+            )
+        )
+
+        showEmojiCategory(
+            emojiCategories.keys.first()
+        )
     }
 
     private fun showEmojiCategory(category: String) {
-        val existingCategoryBar = content.getChildAt(0)
 
-        content.removeAllViews()
-
-        if (existingCategoryBar != null) {
-            content.addView(existingCategoryBar)
+        if (content.childCount > 0) {
+            content.removeViews(
+                1,
+                content.childCount - 1
+            )
         }
 
-        createItemGrid(emojiCategories[category] ?: emptyList())
+        createItemGrid(
+            emojiCategories[category] ?: emptyList()
+        )
+
+        addEmojiBottomRow()
+    }
+
+    private fun renderRecentEmojis() {
+
+        if (content.childCount > 0) {
+            content.removeViews(
+                1,
+                content.childCount - 1
+            )
+        }
+
+        if (recentEmojis.isEmpty()) {
+
+            val message = TextView(this).apply {
+                text = "🕘 No recently used emojis yet."
+                textSize = 18f
+                gravity = Gravity.CENTER
+                setPadding(
+                    dp(20),
+                    dp(40),
+                    dp(20),
+                    dp(40)
+                )
+            }
+
+            content.addView(message)
+
+        } else {
+            createItemGrid(recentEmojis)
+        }
+
+        addEmojiBottomRow()
+    }
+
+    private fun addEmojiBottomRow() {
 
         val bottom = keyboardRow()
 
         bottom.addView(
             keyButton("🔤") {
-                mode = Mode.LETTERS
+                mode = KeyboardMode.LETTERS
                 render()
             },
-            keyParams(1.2f)
+            keyParams(1.15f)
         )
 
         bottom.addView(
             keyButton("⭐") {
-                mode = Mode.SAVED
+                mode = KeyboardMode.SAVED
                 render()
             },
-            keyParams(1.2f)
+            keyParams(1.15f)
+        )
+
+        bottom.addView(
+            keyButton("📋") {
+                mode = KeyboardMode.CLIPBOARD
+                render()
+            },
+            keyParams(1.15f)
         )
 
         bottom.addView(
@@ -393,198 +719,27 @@ class MyEmojiInputMethodService : InputMethodService() {
             keyButton("⌫") {
                 deletePreviousCharacter()
             },
-            keyParams(1.2f)
+            keyParams(1.15f)
         )
 
         content.addView(bottom)
     }
 
     private fun renderSaved() {
-        val saved = SavedItemStore.getSavedItems(this)
+
+        val saved =
+            SavedItemStore.getSavedItems(this)
 
         if (saved.isEmpty()) {
+
             val message = TextView(this).apply {
-                text = "⭐ Your saved items will appear here.\n\nLong-press an emoji or symbol to save it."
-                textSize = 18f
+                text =
+                    "⭐ Your saved items will appear here.\n\n" +
+                            "Long-press an emoji, symbol, or clipboard item to save it."
+                textSize = 17f
                 gravity = Gravity.CENTER
-                setPadding(20, 60, 20, 60)
-            }
-
-            content.addView(message)
-        } else {
-            createItemGrid(saved)
-        }
-
-        val bottom = keyboardRow()
-
-        bottom.addView(
-            keyButton("🔤") {
-                mode = Mode.LETTERS
-                render()
-            },
-            keyParams(1.2f)
-        )
-
-        bottom.addView(
-            keyButton("😀") {
-                mode = Mode.EMOJI
-                render()
-            },
-            keyParams(1.2f)
-        )
-
-        bottom.addView(
-            keyButton("SPACE") {
-                commitText(" ")
-            },
-            keyParams(3f)
-        )
-
-        bottom.addView(
-            keyButton("⌫") {
-                deletePreviousCharacter()
-            },
-            keyParams(1.2f)
-        )
-
-        content.addView(bottom)
-    }
-
-    private fun createItemGrid(items: List<String>) {
-        var row: LinearLayout? = null
-
-        items.forEachIndexed { index, item ->
-            if (index % 8 == 0) {
-                row = keyboardRow()
-                content.addView(row)
-            }
-
-            val button = TextView(this).apply {
-                text = item
-                textSize = 28f
-                gravity = Gravity.CENTER
-                setPadding(4, 10, 4, 10)
-
-                setBackgroundColor(Color.WHITE)
-
-                setOnClickListener {
-                    commitText(item)
-                }
-
-                setOnLongClickListener {
-                    SavedItemStore.saveItem(
-                        this@MyEmojiInputMethodService,
-                        item
-                    )
-
-                    Toast.makeText(
-                        this@MyEmojiInputMethodService,
-                        "⭐ Saved $item",
-                        Toast.LENGTH_SHORT
-                    ).show()
-
-                    true
-                }
-            }
-
-            row?.addView(
-                button,
-                LinearLayout.LayoutParams(
-                    0,
-                    ViewGroup.LayoutParams.WRAP_CONTENT,
-                    1f
-                )
-            )
-        }
-    }
-
-    private fun keyboardRow(): LinearLayout {
-        return LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER
-            setPadding(2, 2, 2, 2)
-        }
-    }
-
-    private fun keyButton(
-        text: String,
-        action: () -> Unit
-    ): Button {
-        return Button(this).apply {
-            this.text = text
-            textSize = if (text.length > 4) 13f else 18f
-            isAllCaps = false
-            setOnClickListener {
-                action()
-            }
-        }
-    }
-
-    private fun smallButton(
-        text: String,
-        action: () -> Unit
-    ): Button {
-        return Button(this).apply {
-            this.text = text
-            textSize = 15f
-            isAllCaps = false
-            setOnClickListener {
-                action()
-            }
-        }
-    }
-
-    private fun keyParams(weight: Float = 1f): LinearLayout.LayoutParams {
-        return LinearLayout.LayoutParams(
-            0,
-            58,
-            weight
-        ).apply {
-            setMargins(2, 2, 2, 2)
-        }
-    }
-
-    private fun commitText(text: String) {
-        currentInputConnection?.commitText(text, 1)
-    }
-
-    private fun deletePreviousCharacter() {
-        val connection: InputConnection = currentInputConnection ?: return
-
-        val selected = connection.getSelectedText(0)
-
-        if (!selected.isNullOrEmpty()) {
-            connection.commitText("", 1)
-            return
-        }
-
-        connection.deleteSurroundingTextInCodePoints(1, 0)
-    }
-
-    private fun sendEnter() {
-        val connection = currentInputConnection ?: return
-        val editorInfo: EditorInfo? = currentInputEditorInfo
-
-        when (editorInfo?.imeOptions?.and(EditorInfo.IME_MASK_ACTION)) {
-            EditorInfo.IME_ACTION_DONE,
-            EditorInfo.IME_ACTION_GO,
-            EditorInfo.IME_ACTION_NEXT,
-            EditorInfo.IME_ACTION_SEND,
-            EditorInfo.IME_ACTION_SEARCH -> {
-                sendDefaultEditorAction(true)
-            }
-
-            else -> {
-                sendKeyChar('\n')
-            }
-        }
-    }
-
-    private fun showClipboardInfo() {
-        Toast.makeText(
-            this,
-            "Clipboard manager will be added to the next core update.",
-            Toast.LENGTH_SHORT
-        ).show()
-    }
-}
+                setPadding(
+                    dp(20),
+                    dp(50),
+                    dp(20),
+  
