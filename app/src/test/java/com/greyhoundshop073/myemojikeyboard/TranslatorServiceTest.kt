@@ -1,6 +1,7 @@
 package com.greyhoundshop073.myemojikeyboard
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -12,9 +13,11 @@ class TranslatorServiceTest {
     @Test
     fun blankTextIsRejectedBeforeProviderCall() {
         var providerCalled = false
-        val provider = TranslatorProvider { 
-            providerCalled = true
-            Result.success(TranslationResult("unused", TranslatorLanguagePair(english, yoruba)))
+        val provider = object : TranslatorProvider {
+            override fun translate(request: TranslationRequest): Result<TranslationResult> {
+                providerCalled = true
+                return Result.success(TranslationResult("unused", request.pair))
+            }
         }
 
         val result = TranslatorService(provider).translate(
@@ -23,15 +26,17 @@ class TranslatorServiceTest {
         )
 
         assertTrue(result.isFailure)
-        assertTrue(!providerCalled)
+        assertFalse(providerCalled)
     }
 
     @Test
     fun sameLanguageReturnsOriginalTextWithoutProviderCall() {
         var providerCalled = false
-        val provider = TranslatorProvider {
-            providerCalled = true
-            Result.failure(IllegalStateException("provider should not be called"))
+        val provider = object : TranslatorProvider {
+            override fun translate(request: TranslationRequest): Result<TranslationResult> {
+                providerCalled = true
+                return Result.failure(IllegalStateException("provider should not be called"))
+            }
         }
         val pair = TranslatorLanguagePair(english, english)
 
@@ -39,15 +44,17 @@ class TranslatorServiceTest {
 
         assertTrue(result.isSuccess)
         assertEquals("Hello", result.getOrThrow().translatedText)
-        assertTrue(!providerCalled)
+        assertFalse(providerCalled)
     }
 
     @Test
     fun differentLanguageDelegatesToProvider() {
         var request: TranslationRequest? = null
-        val provider = TranslatorProvider {
-            request = it
-            Result.success(TranslationResult("Bawo", it.pair))
+        val provider = object : TranslatorProvider {
+            override fun translate(input: TranslationRequest): Result<TranslationResult> {
+                request = input
+                return Result.success(TranslationResult("Bawo", input.pair))
+            }
         }
         val pair = TranslatorLanguagePair(english, yoruba)
 
