@@ -1,5 +1,6 @@
 package com.greyhoundshop073.myemojikeyboard
 
+import android.content.ClipboardManager
 import android.content.Context
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
@@ -85,6 +86,32 @@ class TranslatorPanel(
         var translatedText: String? = null
         val insert = button("Insert translation")
         insert.isEnabled = false
+        val copy = button("Copy")
+        copy.isEnabled = false
+        val clearInput = button("Clear")
+
+        val inputActions = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        inputActions.addView(clearInput, LinearLayout.LayoutParams(-1, dp(40)))
+        root.addView(inputActions)
+
+        val resultActions = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        resultActions.addView(copy, LinearLayout.LayoutParams(0, dp(40), 1f))
+        resultActions.addView(insert, LinearLayout.LayoutParams(0, dp(40), 1f))
+        root.addView(resultActions)
+
+        clearInput.setOnClickListener {
+            input.text.clear()
+            translatedText = null
+            insert.isEnabled = false
+            copy.isEnabled = false
+            result.text = "Translation will appear here"
+        }
 
         val translate = button("Translate")
         translate.setOnClickListener {
@@ -97,12 +124,14 @@ class TranslatorPanel(
             if (text.isEmpty()) {
                 translatedText = null
                 insert.isEnabled = false
+                copy.isEnabled = false
                 result.text = "Enter text to translate"
                 return@setOnClickListener
             }
 
             translatedText = null
             insert.isEnabled = false
+            copy.isEnabled = false
             result.text = "Translating…"
             integration.translate(
                 text = text,
@@ -110,11 +139,13 @@ class TranslatorPanel(
                 onResult = { translation ->
                     translatedText = translation
                     result.text = translation
-                    insert.isEnabled = true
+                    insert.isEnabled = translation.isNotBlank()
+                    copy.isEnabled = translation.isNotBlank()
                 },
                 onError = { error ->
                     translatedText = null
                     insert.isEnabled = false
+                    copy.isEnabled = false
                     result.text = "Translation unavailable"
                     Toast.makeText(context, error, Toast.LENGTH_SHORT).show()
                 }
@@ -122,10 +153,17 @@ class TranslatorPanel(
         }
         root.addView(translate, LinearLayout.LayoutParams(-1, dp(46)))
 
+        copy.setOnClickListener {
+            translatedText?.takeIf { it.isNotBlank() }?.let { translation ->
+                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+                clipboard?.setPrimaryClip(android.content.ClipData.newPlainText("Translation", translation))
+                Toast.makeText(context, "Translation copied", Toast.LENGTH_SHORT).show()
+            }
+        }
+
         insert.setOnClickListener {
             translatedText?.takeIf { it.isNotBlank() }?.let(onInsertTranslation)
         }
-        root.addView(insert, LinearLayout.LayoutParams(-1, dp(46)))
 
         swap.setOnClickListener {
             val source = targetSpinner.selectedItemPosition
@@ -136,6 +174,7 @@ class TranslatorPanel(
             TranslatorPreferences.savePair(context, pair)
             translatedText = null
             insert.isEnabled = false
+            copy.isEnabled = false
             result.text = "Translation will appear here"
         }
 
