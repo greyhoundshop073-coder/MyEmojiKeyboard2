@@ -17,16 +17,21 @@ object SavedItemStore {
 
         val storedList = preferences.getString(SAVED_ITEMS_LIST_KEY, null)
         if (!storedList.isNullOrBlank()) {
-            return try {
+            try {
                 val array = JSONArray(storedList)
-                buildList(array.length()) {
-                    for (index in 0 until array.length()) {
-                        val item = array.optString(index)
-                        if (item.isNotBlank()) add(item)
-                    }
+                val items = linkedSetOf<String>()
+                for (index in 0 until array.length()) {
+                    val item = array.optString(index)
+                    if (item.isNotBlank()) items.add(item)
                 }
+                val recovered = items.toList()
+                if (recovered != itemsFromJson(storedList)) {
+                    persist(preferences, recovered)
+                }
+                return recovered
             } catch (_: Exception) {
-                emptyList()
+                // Fall through to the legacy store so a damaged JSON value
+                // does not permanently hide previously saved items.
             }
         }
 
@@ -76,12 +81,24 @@ object SavedItemStore {
         return getSavedItems(context).contains(item)
     }
 
+    private fun itemsFromJson(storedList: String): List<String> {
+        val array = JSONArray(storedList)
+        return buildList(array.length()) {
+            for (index in 0 until array.length()) {
+                val item = array.optString(index)
+                if (item.isNotBlank()) add(item)
+            }
+        }
+    }
+
     private fun persist(
         preferences: android.content.SharedPreferences,
         items: List<String>
     ) {
         val array = JSONArray()
-        items.forEach { array.put(it) }
+        items.forEach { item ->
+            if (item.isNotBlank()) array.put(item)
+        }
 
         preferences.edit()
             .putString(SAVED_ITEMS_LIST_KEY, array.toString())
