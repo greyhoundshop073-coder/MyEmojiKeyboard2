@@ -1,0 +1,1 @@
+Translator foundation is intentionally provider-neutral. Real translation must be supplied through TranslatorProvider; no API secret belongs in this Android project.
