@@ -14,10 +14,14 @@ import java.util.concurrent.Executors
  * crash the keyboard UI. Translation work is dispatched off the keyboard UI
  * thread, while results are delivered back on the main thread for safe UI
  * updates.
+ *
+ * The default executor is shared because translator panels are rebuilt whenever
+ * the keyboard changes mode. Creating a new executor for every panel would
+ * otherwise leave a growing number of worker threads alive across mode changes.
  */
 class TranslatorIntegration(
     private val translatorService: TranslatorService = TranslatorService(),
-    private val executor: Executor = Executors.newSingleThreadExecutor(),
+    private val executor: Executor = SharedTranslatorExecutor.executor,
     private val mainHandler: Handler = Handler(Looper.getMainLooper())
 ) {
     fun translate(
@@ -41,5 +45,9 @@ class TranslatorIntegration(
                 mainHandler.post { onError(error.message ?: "Translation unavailable") }
             }
         }
+    }
+
+    private object SharedTranslatorExecutor {
+        val executor: Executor = Executors.newSingleThreadExecutor()
     }
 }
