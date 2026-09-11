@@ -84,6 +84,7 @@ class TranslatorPanel(
         root.addView(result, LinearLayout.LayoutParams(-1, dp(74)))
 
         var translatedText: String? = null
+        var requestGeneration = 0L
         val insert = button("Insert translation")
         insert.isEnabled = false
         val copy = button("Copy")
@@ -106,6 +107,7 @@ class TranslatorPanel(
         root.addView(resultActions)
 
         clearInput.setOnClickListener {
+            requestGeneration++
             input.text.clear()
             translatedText = null
             insert.isEnabled = false
@@ -122,6 +124,7 @@ class TranslatorPanel(
             TranslatorPreferences.savePair(context, pair)
             val text = input.text.toString().trim()
             if (text.isEmpty()) {
+                requestGeneration++
                 translatedText = null
                 insert.isEnabled = false
                 copy.isEnabled = false
@@ -129,6 +132,7 @@ class TranslatorPanel(
                 return@setOnClickListener
             }
 
+            val generation = ++requestGeneration
             translatedText = null
             insert.isEnabled = false
             copy.isEnabled = false
@@ -137,12 +141,14 @@ class TranslatorPanel(
                 text = text,
                 pair = pair,
                 onResult = { translation ->
+                    if (generation != requestGeneration) return@translate
                     translatedText = translation
                     result.text = translation
                     insert.isEnabled = translation.isNotBlank()
                     copy.isEnabled = translation.isNotBlank()
                 },
                 onError = { error ->
+                    if (generation != requestGeneration) return@translate
                     translatedText = null
                     insert.isEnabled = false
                     copy.isEnabled = false
@@ -166,6 +172,7 @@ class TranslatorPanel(
         }
 
         swap.setOnClickListener {
+            requestGeneration++
             val source = targetSpinner.selectedItemPosition
             val target = sourceSpinner.selectedItemPosition
             sourceSpinner.setSelection(source)
