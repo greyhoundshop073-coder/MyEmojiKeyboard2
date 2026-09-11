@@ -182,7 +182,13 @@ class MyEmojiInputMethodService : InputMethodService() {
 
             row.forEach { letter ->
                 val display = if (shiftOn) letter.uppercase() else letter
-                rowView.addView(keyButton(display) { commitText(display) }, keyParams())
+                rowView.addView(keyButton(display) {
+                    commitText(display)
+                    if (shiftOn) {
+                        shiftOn = false
+                        render()
+                    }
+                }, keyParams())
             }
             content.addView(rowView)
         }
@@ -400,5 +406,9 @@ class MyEmojiInputMethodService : InputMethodService() {
             EditorInfo.IME_ACTION_SEARCH -> sendDefaultEditorAction(true)
             else -> sendKeyChar('\n')
         }
+
+        // Start the next line in one-shot shift mode, matching normal keyboard behavior.
+        shiftOn = true
+        if (mode == Mode.LETTERS) render()
     }
 }
