@@ -62,6 +62,19 @@ class MyEmojiInputMethodService : InputMethodService() {
     private val surfaceLight = Color.rgb(22, 38, 67)
     private val text = Color.WHITE
 
+    override fun onStartInput(attribute: EditorInfo?, restarting: Boolean) {
+        super.onStartInput(attribute, restarting)
+        if (restarting) return
+
+        mode = Mode.LETTERS
+        shiftOn = false
+        symbolsPage = false
+
+        if (::root.isInitialized && ::content.isInitialized) {
+            render()
+        }
+    }
+
     override fun onCreateInputView(): View {
         buildKeyboard()
         return root
