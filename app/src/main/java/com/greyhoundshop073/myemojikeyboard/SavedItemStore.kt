@@ -36,13 +36,16 @@ object SavedItemStore {
         }
 
         // Migrate the original StringSet storage once. StringSet does not guarantee
-        // a stable display order, so the new JSON list is used for deterministic UI.
+        // a stable display order, so sort the migrated values before persisting them.
         val legacy = preferences.getStringSet(
             SAVED_ITEMS_KEY,
             emptySet()
         ) ?: emptySet()
 
-        val migrated = legacy.toList()
+        val migrated = legacy
+            .filter { it.isNotBlank() }
+            .sorted()
+
         if (migrated.isNotEmpty()) {
             persist(preferences, migrated)
         }
