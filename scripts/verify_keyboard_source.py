@@ -51,6 +51,15 @@ for function in (
 ):
     require(service, function, function)
 
+# New editor sessions must start from a clean transient keyboard state.
+require(service, "override fun onStartInput(attribute: EditorInfo?, restarting: Boolean)", "input-session lifecycle hook")
+require(service, "if (restarting) return", "restart preservation")
+require(service, "mode = Mode.LETTERS", "new-session mode reset")
+require(service, "shiftOn = false", "new-session shift reset")
+require(service, "symbolsPage = false", "new-session symbols reset")
+require(service, "::root.isInitialized", "safe lifecycle view check")
+require(service, "::content.isInitialized", "safe lifecycle content check")
+
 # Safety checks for the current editing and persistence behavior.
 require(service, "deleteSurroundingTextInCodePoints(1, 0)", "emoji-aware backspace")
 require(service, "getSelectedText(0)", "selected-text detection")
@@ -61,7 +70,6 @@ require(service, "EditorInfo.IME_ACTION_GO", "GO editor action")
 require(service, "EditorInfo.IME_ACTION_NEXT", "NEXT editor action")
 require(service, "EditorInfo.IME_ACTION_SEND", "SEND editor action")
 require(service, "EditorInfo.IME_ACTION_SEARCH", "SEARCH editor action")
-require(service, "shiftOn = false", "one-shot shift reset")
 require(service, "SavedItemStore.saveItem", "saved-item integration")
 require(service, "MyEmojiCreatorStore.getCreations", "My Emoji collection integration")
 require(service, "ClipboardManager", "real clipboard integration")
