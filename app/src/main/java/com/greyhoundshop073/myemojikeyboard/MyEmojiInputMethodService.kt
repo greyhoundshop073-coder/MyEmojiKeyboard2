@@ -261,7 +261,7 @@ class MyEmojiInputMethodService : InputMethodService() {
             }
             content.addView(message)
         } else {
-            createItemGrid(saved)
+            createItemGrid(saved, allowRemoval = true)
         }
 
         val bottom = keyboardRow()
@@ -318,7 +318,7 @@ class MyEmojiInputMethodService : InputMethodService() {
         content.addView(bottom)
     }
 
-    private fun createItemGrid(items: List<String>) {
+    private fun createItemGrid(items: List<String>, allowRemoval: Boolean = false) {
         var row: LinearLayout? = null
         items.forEachIndexed { index, item ->
             if (index % 8 == 0) {
@@ -334,8 +334,14 @@ class MyEmojiInputMethodService : InputMethodService() {
                 setBackgroundColor(Color.WHITE)
                 setOnClickListener { commitText(item) }
                 setOnLongClickListener {
-                    SavedItemStore.saveItem(this@MyEmojiInputMethodService, item)
-                    Toast.makeText(this@MyEmojiInputMethodService, "⭐ Saved $item", Toast.LENGTH_SHORT).show()
+                    if (allowRemoval) {
+                        SavedItemStore.removeItem(this@MyEmojiInputMethodService, item)
+                        Toast.makeText(this@MyEmojiInputMethodService, "Removed ⭐ $item", Toast.LENGTH_SHORT).show()
+                        render()
+                    } else {
+                        SavedItemStore.saveItem(this@MyEmojiInputMethodService, item)
+                        Toast.makeText(this@MyEmojiInputMethodService, "⭐ Saved $item", Toast.LENGTH_SHORT).show()
+                    }
                     true
                 }
             }
