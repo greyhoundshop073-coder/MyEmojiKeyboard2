@@ -3,6 +3,7 @@ import re
 
 SERVICE = Path("app/src/main/java/com/greyhoundshop073/myemojikeyboard/MyEmojiInputMethodService.kt")
 STORE = Path("app/src/main/java/com/greyhoundshop073/myemojikeyboard/SavedItemStore.kt")
+MY_EMOJI_STORE = Path("app/src/main/java/com/greyhoundshop073/myemojikeyboard/MyEmojiCreatorStore.kt")
 TRANSLATOR_PANEL = Path("app/src/main/java/com/greyhoundshop073/myemojikeyboard/TranslatorPanel.kt")
 TRANSLATOR_INTEGRATION = Path("app/src/main/java/com/greyhoundshop073/myemojikeyboard/TranslatorIntegration.kt")
 TRANSLATOR_SERVICE = Path("app/src/main/java/com/greyhoundshop073/myemojikeyboard/TranslatorService.kt")
@@ -19,6 +20,7 @@ def require(text: str, needle: str, label: str) -> None:
 
 service = SERVICE.read_text(encoding="utf-8")
 store = STORE.read_text(encoding="utf-8")
+my_emoji_store = MY_EMOJI_STORE.read_text(encoding="utf-8")
 translator_panel = TRANSLATOR_PANEL.read_text(encoding="utf-8")
 translator_integration = TRANSLATOR_INTEGRATION.read_text(encoding="utf-8")
 translator_service = TRANSLATOR_SERVICE.read_text(encoding="utf-8")
@@ -29,7 +31,7 @@ for declaration in ("private lateinit var root", "private lateinit var content",
         fail(f"expected exactly one declaration of {declaration}")
 
 # Keep every supported keyboard mode wired into rendering.
-for mode in ("LETTERS", "EMOJI", "SYMBOLS", "SAVED", "CLIPBOARD", "TRANSLATOR"):
+for mode in ("LETTERS", "EMOJI", "SYMBOLS", "SAVED", "CLIPBOARD", "MY_EMOJI", "TRANSLATOR"):
     require(service, mode, f"Mode.{mode}")
 
 for function in (
@@ -38,6 +40,7 @@ for function in (
     "renderSymbols()",
     "renderSaved()",
     "renderClipboard()",
+    "renderMyEmoji()",
     "renderTranslator()",
     "deletePreviousCharacter()",
     "sendEnter()",
@@ -49,6 +52,7 @@ require(service, "deleteSurroundingTextInCodePoints(1, 0)", "emoji-aware backspa
 require(service, "sendDefaultEditorAction(true)", "editor-aware enter action")
 require(service, "shiftOn = false", "one-shot shift reset")
 require(service, "SavedItemStore.saveItem", "saved-item integration")
+require(service, "MyEmojiCreatorStore.getCreations", "My Emoji collection integration")
 require(service, "ClipboardManager", "real clipboard integration")
 
 # Saved-item storage must retain the JSON store and legacy migration path.
@@ -56,6 +60,13 @@ require(store, "SAVED_ITEMS_LIST_KEY", "JSON saved-items key")
 require(store, "getStringSet", "legacy saved-items migration")
 require(store, "sorted()", "deterministic legacy ordering")
 require(store, "linkedSetOf<String>()", "saved-item deduplication")
+
+# My Emoji storage must stay bounded and sanitize persisted values.
+require(my_emoji_store, "MAX_CREATIONS = 100", "My Emoji collection size limit")
+require(my_emoji_store, "MAX_EMOJI_LENGTH = 64", "My Emoji item length limit")
+require(my_emoji_store, "take(MAX_CREATIONS)", "My Emoji persistence cap")
+require(my_emoji_store, "distinct()", "My Emoji deduplication")
+require(my_emoji_store, "JSONArray", "My Emoji persistent storage")
 
 # Translator wiring must remain present and provider credentials must stay out of the APK.
 require(translator_panel, "TranslatorIntegration", "translator integration boundary")
