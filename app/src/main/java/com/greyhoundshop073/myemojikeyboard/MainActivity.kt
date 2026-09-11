@@ -90,12 +90,16 @@ class MainActivity : Activity() {
     }
 
     private fun updateStatus() {
-        val packageName = "$packageName/com.greyhoundshop073.myemojikeyboard.MyEmojiInputMethodService"
-        val enabled = Settings.Secure.getString(contentResolver, Settings.Secure.ENABLED_INPUT_METHODS)
-            ?.split(":")
-            ?.any { it == packageName }
-            == true
-        val selected = Settings.Secure.getString(contentResolver, Settings.Secure.DEFAULT_INPUT_METHOD) == packageName
+        val inputMethodId = "${applicationContext.packageName}/com.greyhoundshop073.myemojikeyboard.MyEmojiInputMethodService"
+        val enabledMethods = Settings.Secure.getString(
+            contentResolver,
+            Settings.Secure.ENABLED_INPUT_METHODS
+        ).orEmpty()
+        val enabled = enabledMethods.split(":").contains(inputMethodId)
+        val selected = Settings.Secure.getString(
+            contentResolver,
+            Settings.Secure.DEFAULT_INPUT_METHOD
+        ) == inputMethodId
 
         status.text = when {
             selected -> "✅ My Emoji Keyboard is enabled and selected"
