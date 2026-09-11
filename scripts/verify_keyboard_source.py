@@ -7,6 +7,8 @@ MY_EMOJI_STORE = Path("app/src/main/java/com/greyhoundshop073/myemojikeyboard/My
 TRANSLATOR_PANEL = Path("app/src/main/java/com/greyhoundshop073/myemojikeyboard/TranslatorPanel.kt")
 TRANSLATOR_INTEGRATION = Path("app/src/main/java/com/greyhoundshop073/myemojikeyboard/TranslatorIntegration.kt")
 TRANSLATOR_SERVICE = Path("app/src/main/java/com/greyhoundshop073/myemojikeyboard/TranslatorService.kt")
+MANIFEST = Path("app/src/main/AndroidManifest.xml")
+METHOD_XML = Path("app/src/main/res/xml/method.xml")
 
 
 def fail(message: str) -> None:
@@ -24,6 +26,8 @@ my_emoji_store = MY_EMOJI_STORE.read_text(encoding="utf-8")
 translator_panel = TRANSLATOR_PANEL.read_text(encoding="utf-8")
 translator_integration = TRANSLATOR_INTEGRATION.read_text(encoding="utf-8")
 translator_service = TRANSLATOR_SERVICE.read_text(encoding="utf-8")
+manifest = MANIFEST.read_text(encoding="utf-8")
+method_xml = METHOD_XML.read_text(encoding="utf-8")
 
 # Guard against the duplicate declarations that previously broke compilation.
 for declaration in ("private lateinit var root", "private lateinit var content", "private var mode"):
@@ -75,5 +79,25 @@ require(translator_panel, "Insert translation", "translator insertion action")
 require(translator_integration, "SharedTranslatorExecutor", "shared translator executor")
 require(translator_integration, "Handler(Looper.getMainLooper())", "main-thread translator callbacks")
 require(translator_service, "UnconfiguredTranslatorProvider", "safe default translator provider")
+
+# Keyboard privacy: the manifest must expose only the input method service,
+# and it must be protected by Android's BIND_INPUT_METHOD permission.
+for forbidden in (
+    "android.permission.INTERNET",
+    "android.permission.READ_EXTERNAL_STORAGE",
+    "android.permission.WRITE_EXTERNAL_STORAGE",
+    "android.permission.READ_MEDIA_IMAGES",
+    "android.permission.READ_MEDIA_VIDEO",
+    "android.permission.RECORD_AUDIO",
+    "android.permission.CAMERA",
+):
+    if forbidden in manifest:
+        fail(f"unexpected sensitive permission in manifest: {forbidden}")
+
+require(manifest, 'android:permission="android.permission.BIND_INPUT_METHOD"', "protected input-method service")
+require(manifest, 'android:name="android.view.im"', "input-method metadata")
+require(manifest, 'android:resource="@xml/method"', "input-method configuration resource")
+require(method_xml, 'android:imeSubtypeLocale="en_US"', "keyboard locale")
+require(method_xml, 'android:imeSubtypeMode="keyboard"', "keyboard subtype mode")
 
 print("Keyboard source verification: PASS")
