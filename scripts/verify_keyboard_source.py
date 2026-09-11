@@ -59,6 +59,14 @@ require(service, "SavedItemStore.saveItem", "saved-item integration")
 require(service, "MyEmojiCreatorStore.getCreations", "My Emoji collection integration")
 require(service, "ClipboardManager", "real clipboard integration")
 
+# Clipboard rendering must stay bounded so a large system clipboard cannot
+# create an unbounded number of keyboard views or render oversized text.
+require(service, "MAX_CLIPBOARD_ITEMS = 30", "clipboard item count limit")
+require(service, "MAX_CLIPBOARD_ITEM_LENGTH = 2000", "clipboard item length limit")
+require(service, "items.size == MAX_CLIPBOARD_ITEMS", "clipboard item count enforcement")
+require(service, "value.length <= MAX_CLIPBOARD_ITEM_LENGTH", "clipboard item length enforcement")
+require(service, "!items.contains(value)", "clipboard deduplication")
+
 # Saved-item storage must retain the JSON store and legacy migration path.
 require(store, "SAVED_ITEMS_LIST_KEY", "JSON saved-items key")
 require(store, "getStringSet", "legacy saved-items migration")
