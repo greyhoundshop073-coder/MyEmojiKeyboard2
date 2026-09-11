@@ -13,7 +13,8 @@ import android.widget.TextView
 class MyEmojiCreatorPanel(
     private val context: Context,
     private val onInsert: (String) -> Unit,
-    private val onClose: () -> Unit = {}
+    private val onClose: () -> Unit = {},
+    private val onSaved: () -> Unit = {}
 ) {
     private val faces = listOf("😀", "😎", "🥰", "😂", "😢", "😡", "🤔", "🥳")
     private val expressions = listOf("✨", "🔥", "💯", "❤️", "💙", "💜", "💚", "⭐")
@@ -65,7 +66,10 @@ class MyEmojiCreatorPanel(
             gravity = Gravity.CENTER
         }
         actions.addView(actionButton("INSERT") { onInsert(buildEmoji()) })
-        actions.addView(actionButton("SAVE") { MyEmojiCreatorStore.save(context, buildEmoji()) })
+        actions.addView(actionButton("SAVE") {
+            MyEmojiCreatorStore.save(context, buildEmoji())
+            onSaved()
+        })
         actions.addView(actionButton("DONE") { onClose() })
         root.addView(actions, LinearLayout.LayoutParams(-1, dp(54)))
         refresh()
