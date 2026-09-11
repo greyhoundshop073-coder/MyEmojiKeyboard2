@@ -14,15 +14,15 @@ import android.widget.TextView
 import android.widget.Toast
 
 /**
- * Keyboard-sized translator UI foundation.
+ * Keyboard-sized translator UI.
  *
- * The panel owns language selection and request creation, while actual
- * translation is delegated to a TranslatorProvider. No fake translation is
- * shown when the provider is unavailable.
+ * The panel talks only to TranslatorIntegration. A real provider can therefore
+ * be added later without changing the keyboard UI or exposing API secrets in
+ * the APK.
  */
 class TranslatorPanel(
     private val context: Context,
-    private val provider: TranslatorProvider = UnconfiguredTranslatorProvider,
+    private val integration: TranslatorIntegration = TranslatorIntegration(),
     private val initialText: String = "",
     private val onInsertTranslation: (String) -> Unit
 ) {
@@ -82,6 +82,10 @@ class TranslatorPanel(
         }
         root.addView(result, LinearLayout.LayoutParams(-1, dp(74)))
 
+        var translatedText: String? = null
+        val insert = button("Insert translation")
+        insert.isEnabled = false
+
         val translate = button("Translate")
         translate.setOnClickListener {
             pair = TranslatorLanguagePair(
@@ -91,26 +95,35 @@ class TranslatorPanel(
             TranslatorPreferences.savePair(context, pair)
             val text = input.text.toString().trim()
             if (text.isEmpty()) {
+                translatedText = null
+                insert.isEnabled = false
                 result.text = "Enter text to translate"
                 return@setOnClickListener
             }
-            provider.translate(TranslationRequest(text, pair))
-                .onSuccess { translation ->
-                    result.text = translation.translatedText
-                }
-                .onFailure { error ->
+
+            translatedText = null
+            insert.isEnabled = false
+            result.text = "Translating…"
+            integration.translate(
+                text = text,
+                pair = pair,
+                onResult = { translation ->
+                    translatedText = translation
+                    result.text = translation
+                    insert.isEnabled = true
+                },
+                onError = { error ->
+                    translatedText = null
+                    insert.isEnabled = false
                     result.text = "Translation unavailable"
-                    Toast.makeText(context, error.message ?: "Translation service unavailable", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, error, Toast.LENGTH_SHORT).show()
                 }
+            )
         }
         root.addView(translate, LinearLayout.LayoutParams(-1, dp(46)))
 
-        val insert = button("Insert translation")
         insert.setOnClickListener {
-            val translated = result.text.toString()
-            if (translated.isNotBlank() && translated != "Translation will appear here" && translated != "Translation unavailable") {
-                onInsertTranslation(translated)
-            }
+            translatedText?.takeIf { it.isNotBlank() }?.let(onInsertTranslation)
         }
         root.addView(insert, LinearLayout.LayoutParams(-1, dp(46)))
 
@@ -121,6 +134,9 @@ class TranslatorPanel(
             targetSpinner.setSelection(target)
             pair = TranslatorLanguagePair(languages[source], languages[target])
             TranslatorPreferences.savePair(context, pair)
+            translatedText = null
+            insert.isEnabled = false
+            result.text = "Translation will appear here"
         }
 
         return root
