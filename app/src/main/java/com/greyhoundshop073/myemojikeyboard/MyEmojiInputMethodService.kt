@@ -25,7 +25,7 @@ class MyEmojiInputMethodService : InputMethodService() {
     private var shiftOn = false
     private var symbolsPage = false
 
-    private enum class Mode { LETTERS, EMOJI, SYMBOLS, SAVED, CLIPBOARD, MY_EMOJI }
+    private enum class Mode { LETTERS, EMOJI, SYMBOLS, SAVED, CLIPBOARD, MY_EMOJI, TRANSLATOR }
 
     private val letters = listOf(
         listOf("q", "w", "e", "r", "t", "y", "u", "i", "o", "p"),
@@ -87,6 +87,7 @@ class MyEmojiInputMethodService : InputMethodService() {
         utility.addView(smallButton("📋") { mode = Mode.CLIPBOARD; render() }, weightParams(1f))
         utility.addView(smallButton("★") { mode = Mode.SAVED; render() }, weightParams(1f))
         utility.addView(smallButton("✦") { mode = Mode.MY_EMOJI; render() }, weightParams(1f))
+        utility.addView(smallButton("🌐") { mode = Mode.TRANSLATOR; render() }, weightParams(1f))
         root.addView(utility, LinearLayout.LayoutParams(-1, dp(48)))
 
         val suggestion = TextView(this).apply {
@@ -116,7 +117,31 @@ class MyEmojiInputMethodService : InputMethodService() {
             Mode.SAVED -> renderSaved()
             Mode.CLIPBOARD -> renderClipboard()
             Mode.MY_EMOJI -> renderMyEmoji()
+            Mode.TRANSLATOR -> renderTranslator()
         }
+    }
+
+    private fun renderTranslator() {
+        addSectionTitle("TRANSLATOR", "🌐  Translate and insert into the current app")
+        val initialText = currentInputConnection?.getTextBeforeCursor(500, 0)?.toString().orEmpty()
+        val panel = TranslatorPanel(
+            context = this,
+            initialText = initialText,
+            onInsertTranslation = { translated ->
+                commitText(translated)
+                mode = Mode.LETTERS
+                render()
+            }
+        )
+        content.addView(panel.createView(), LinearLayout.LayoutParams(-1, ViewGroup.LayoutParams.WRAP_CONTENT))
+
+        val bottom = keyboardRow()
+        bottom.addView(keyButton("ABC") { mode = Mode.LETTERS; render() }, keyParams(1.2f))
+        bottom.addView(keyButton("☺") { mode = Mode.EMOJI; render() }, keyParams(1.2f))
+        bottom.addView(keyButton("MY") { mode = Mode.MY_EMOJI; render() }, keyParams(1.2f))
+        bottom.addView(keyButton("★") { mode = Mode.SAVED; render() }, keyParams(1.2f))
+        bottom.addView(keyButton("⌫") { deletePreviousCharacter() }, keyParams(1.2f))
+        content.addView(bottom)
     }
 
     private fun renderLetters() {
@@ -175,7 +200,8 @@ class MyEmojiInputMethodService : InputMethodService() {
         bottom.addView(keyButton("ABC") { mode = Mode.LETTERS; render() }, keyParams(1.1f))
         bottom.addView(keyButton("★") { mode = Mode.SAVED; render() }, keyParams(1.1f))
         bottom.addView(keyButton("MY") { mode = Mode.MY_EMOJI; render() }, keyParams(1.1f))
-        bottom.addView(keyButton("SPACE") { commitText(" ") }, keyParams(2.5f))
+        bottom.addView(keyButton("🌐") { mode = Mode.TRANSLATOR; render() }, keyParams(1.1f))
+        bottom.addView(keyButton("SPACE") { commitText(" ") }, keyParams(2.1f))
         bottom.addView(keyButton("⌫") { deletePreviousCharacter() }, keyParams(1.1f))
         content.addView(bottom)
     }
@@ -190,7 +216,8 @@ class MyEmojiInputMethodService : InputMethodService() {
         bottom.addView(keyButton("ABC") { mode = Mode.LETTERS; render() }, keyParams(1.1f))
         bottom.addView(keyButton("☺") { mode = Mode.EMOJI; render() }, keyParams(1.1f))
         bottom.addView(keyButton("MY") { mode = Mode.MY_EMOJI; render() }, keyParams(1.1f))
-        bottom.addView(keyButton("SPACE") { commitText(" ") }, keyParams(2.5f))
+        bottom.addView(keyButton("🌐") { mode = Mode.TRANSLATOR; render() }, keyParams(1.1f))
+        bottom.addView(keyButton("SPACE") { commitText(" ") }, keyParams(2.1f))
         bottom.addView(keyButton("⌫") { deletePreviousCharacter() }, keyParams(1.1f))
         content.addView(bottom)
     }
@@ -219,7 +246,8 @@ class MyEmojiInputMethodService : InputMethodService() {
         bottom.addView(keyButton("ABC") { mode = Mode.LETTERS; render() }, keyParams(1.2f))
         bottom.addView(keyButton("☺") { mode = Mode.EMOJI; render() }, keyParams(1.2f))
         bottom.addView(keyButton("★") { mode = Mode.SAVED; render() }, keyParams(1.2f))
-        bottom.addView(keyButton("SPACE") { commitText(" ") }, keyParams(2.4f))
+        bottom.addView(keyButton("🌐") { mode = Mode.TRANSLATOR; render() }, keyParams(1.2f))
+        bottom.addView(keyButton("SPACE") { commitText(" ") }, keyParams(2.0f))
         bottom.addView(keyButton("⌫") { deletePreviousCharacter() }, keyParams(1.2f))
         content.addView(bottom)
     }
@@ -251,7 +279,8 @@ class MyEmojiInputMethodService : InputMethodService() {
         bottom.addView(keyButton("☺") { mode = Mode.EMOJI; render() }, keyParams(1.1f))
         bottom.addView(keyButton("★") { mode = Mode.SAVED; render() }, keyParams(1.1f))
         bottom.addView(keyButton("MY") { mode = Mode.MY_EMOJI; render() }, keyParams(1.1f))
-        bottom.addView(keyButton("SPACE") { commitText(" ") }, keyParams(2.2f))
+        bottom.addView(keyButton("🌐") { mode = Mode.TRANSLATOR; render() }, keyParams(1.1f))
+        bottom.addView(keyButton("SPACE") { commitText(" ") }, keyParams(1.9f))
         bottom.addView(keyButton("⌫") { deletePreviousCharacter() }, keyParams(1.1f))
         content.addView(bottom)
     }
