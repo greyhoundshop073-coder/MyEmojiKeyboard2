@@ -7,12 +7,14 @@ import android.provider.Settings
 import android.view.Gravity
 import android.view.inputmethod.InputMethodManager
 import android.widget.Button
+import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.TextView
 
 class MainActivity : Activity() {
 
     private lateinit var status: TextView
+    private lateinit var testInput: EditText
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -64,12 +66,29 @@ class MainActivity : Activity() {
             }
         }
 
+        val testLabel = TextView(this).apply {
+            text = "Test your keyboard"
+            textSize = 16f
+            gravity = Gravity.CENTER
+            setPadding(0, dp(20), 0, dp(8))
+        }
+
+        testInput = EditText(this).apply {
+            hint = "Tap here to test My Emoji Keyboard"
+            textSize = 17f
+            minLines = 2
+            maxLines = 4
+            gravity = Gravity.TOP or Gravity.START
+            setPadding(dp(12), dp(12), dp(12), dp(12))
+        }
+
         val testButton = Button(this).apply {
-            text = "😀 Open Keyboard Picker"
+            text = "😀 Test Keyboard"
             setOnClickListener {
+                testInput.requestFocus()
                 val inputMethodManager =
                     getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
-                inputMethodManager.showInputMethodPicker()
+                inputMethodManager.showSoftInput(testInput, InputMethodManager.SHOW_IMPLICIT)
             }
         }
 
@@ -78,6 +97,11 @@ class MainActivity : Activity() {
         root.addView(status)
         root.addView(settingsButton)
         root.addView(selectButton)
+        root.addView(testLabel)
+        root.addView(testInput, LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            dp(110)
+        ))
         root.addView(testButton)
 
         setContentView(root)
