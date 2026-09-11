@@ -223,32 +223,56 @@ class MyEmojiInputMethodService : InputMethodService() {
     }
 
     private fun renderMyEmoji() {
-        addSectionTitle("MY EMOJI", "✦  Create something that is yours")
-        val create = Button(this).apply {
-            text = "✦  CREATE YOUR OWN EMOJI"
-            textSize = 15f
-            isAllCaps = false
-            setTextColor(Color.WHITE)
-            background = gradient(intArrayOf(accentPurple, accent), 18f)
-            setOnClickListener { toast("Emoji Creator foundation ready — advanced generation will be added next") }
+        addSectionTitle("MY EMOJI", "✦  Create, save and reuse your personal emoji combinations")
+
+        val panel = MyEmojiCreatorPanel(
+            context = this,
+            onInsert = { emoji -> commitText(emoji) },
+            onClose = { render() }
+        )
+        content.addView(panel.createView(), LinearLayout.LayoutParams(-1, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+            setMargins(dp(4), dp(4), dp(4), dp(8))
+        })
+
+        val saved = MyEmojiCreatorStore.getCreations(this)
+        addSectionTitle("MY COLLECTION", "Tap to insert • Long-press to remove")
+        if (saved.isEmpty()) {
+            addEmptyState("✦", "No custom emoji saved yet", "Use SAVE in the creator above to keep your favorite combinations here.")
+        } else {
+            var row: LinearLayout? = null
+            saved.forEachIndexed { index, emoji ->
+                if (index % 4 == 0) {
+                    row = keyboardRow()
+                    content.addView(row)
+                }
+                val item = TextView(this).apply {
+                    text = emoji
+                    textSize = 27f
+                    gravity = Gravity.CENTER
+                    setPadding(dp(2), dp(8), dp(2), dp(8))
+                    setTextColor(text)
+                    background = gradient(intArrayOf(Color.rgb(20, 36, 63), Color.rgb(15, 27, 49)), 12f)
+                    setOnClickListener { commitText(emoji) }
+                    setOnLongClickListener {
+                        MyEmojiCreatorStore.remove(this@MyEmojiInputMethodService, emoji)
+                        Toast.makeText(this@MyEmojiInputMethodService, "Removed ✦ $emoji", Toast.LENGTH_SHORT).show()
+                        render()
+                        true
+                    }
+                }
+                row?.addView(item, LinearLayout.LayoutParams(0, dp(58), 1f).apply {
+                    setMargins(dp(2), dp(2), dp(2), dp(2))
+                })
+            }
         }
-        content.addView(create, LinearLayout.LayoutParams(-1, dp(58)).apply { setMargins(dp(10), dp(8), dp(10), dp(12)) })
-        val hint = TextView(this).apply {
-            text = "Build your personal collection\n\nCustomize expressions, colors and accessories, then save your creation for one-tap use."
-            textSize = 15f
-            setTextColor(Color.rgb(195, 215, 240))
-            gravity = Gravity.CENTER
-            setPadding(dp(24), dp(18), dp(24), dp(30))
-            background = gradient(intArrayOf(surface, Color.rgb(20, 30, 55)), 18f)
-        }
-        content.addView(hint, LinearLayout.LayoutParams(-1, dp(150)).apply { setMargins(dp(10), 0, dp(10), dp(12)) })
+
         val bottom = keyboardRow()
-        bottom.addView(keyButton("ABC") { mode = Mode.LETTERS; render() }, keyParams(1.2f))
-        bottom.addView(keyButton("☺") { mode = Mode.EMOJI; render() }, keyParams(1.2f))
-        bottom.addView(keyButton("★") { mode = Mode.SAVED; render() }, keyParams(1.2f))
-        bottom.addView(keyButton("🌐") { mode = Mode.TRANSLATOR; render() }, keyParams(1.2f))
-        bottom.addView(keyButton("SPACE") { commitText(" ") }, keyParams(2.0f))
-        bottom.addView(keyButton("⌫") { deletePreviousCharacter() }, keyParams(1.2f))
+        bottom.addView(keyButton("ABC") { mode = Mode.LETTERS; render() }, keyParams(1.1f))
+        bottom.addView(keyButton("☺") { mode = Mode.EMOJI; render() }, keyParams(1.1f))
+        bottom.addView(keyButton("★") { mode = Mode.SAVED; render() }, keyParams(1.1f))
+        bottom.addView(keyButton("🌐") { mode = Mode.TRANSLATOR; render() }, keyParams(1.1f))
+        bottom.addView(keyButton("SPACE") { commitText(" ") }, keyParams(2.1f))
+        bottom.addView(keyButton("⌫") { deletePreviousCharacter() }, keyParams(1.1f))
         content.addView(bottom)
     }
 
