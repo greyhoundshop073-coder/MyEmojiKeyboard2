@@ -282,8 +282,11 @@ class MyEmojiInputMethodService : InputMethodService() {
         val clip = clipboard.primaryClip
         val items = mutableListOf<String>()
         if (clip != null) for (index in 0 until clip.itemCount) {
-            val value = clip.getItemAt(index).coerceToText(this).toString()
-            if (value.isNotEmpty() && !items.contains(value)) items.add(value)
+            if (items.size == MAX_CLIPBOARD_ITEMS) break
+            val value = clip.getItemAt(index).coerceToText(this).toString().trim()
+            if (value.isNotEmpty() && value.length <= MAX_CLIPBOARD_ITEM_LENGTH && !items.contains(value)) {
+                items.add(value)
+            }
         }
         addSectionTitle("CLIPBOARD", "▣  Quick access to copied text")
         if (items.isEmpty()) addEmptyState("▣", "No text in clipboard", "Copy text from another app, then open Clipboard again.")
@@ -403,4 +406,9 @@ class MyEmojiInputMethodService : InputMethodService() {
     }
 
     private fun toast(message: String) { Toast.makeText(this, message, Toast.LENGTH_SHORT).show() }
+
+    private companion object {
+        const val MAX_CLIPBOARD_ITEMS = 30
+        const val MAX_CLIPBOARD_ITEM_LENGTH = 2000
+    }
 }
