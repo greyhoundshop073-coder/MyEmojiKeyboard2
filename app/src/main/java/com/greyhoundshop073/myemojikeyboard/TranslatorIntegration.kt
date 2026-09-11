@@ -1,5 +1,7 @@
 package com.greyhoundshop073.myemojikeyboard
 
+import android.os.Handler
+import android.os.Looper
 import java.util.concurrent.Executor
 import java.util.concurrent.Executors
 
@@ -10,11 +12,13 @@ import java.util.concurrent.Executors
  *
  * Provider failures are contained here so a provider implementation cannot
  * crash the keyboard UI. Translation work is dispatched off the keyboard UI
- * thread so a network-backed provider cannot freeze keyboard interaction.
+ * thread, while results are delivered back on the main thread for safe UI
+ * updates.
  */
 class TranslatorIntegration(
     private val translatorService: TranslatorService = TranslatorService(),
-    private val executor: Executor = Executors.newSingleThreadExecutor()
+    private val executor: Executor = Executors.newSingleThreadExecutor(),
+    private val mainHandler: Handler = Handler(Looper.getMainLooper())
 ) {
     fun translate(
         text: String,
@@ -27,10 +31,14 @@ class TranslatorIntegration(
                 translatorService.translate(text, pair)
             }.onSuccess { result ->
                 result
-                    .onSuccess { onResult(it.translatedText) }
-                    .onFailure { onError(it.message ?: "Translation unavailable") }
+                    .onSuccess { translation ->
+                        mainHandler.post { onResult(translation.translatedText) }
+                    }
+                    .onFailure { error ->
+                        mainHandler.post { onError(error.message ?: "Translation unavailable") }
+                    }
             }.onFailure { error ->
-                onError(error.message ?: "Translation unavailable")
+                mainHandler.post { onError(error.message ?: "Translation unavailable") }
             }
         }
     }
