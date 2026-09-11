@@ -5,10 +5,11 @@ import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.view.Gravity
 import android.view.View
+import android.widget.ArrayAdapter
 import android.widget.Button
+import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.Spinner
-import android.widget.ArrayAdapter
 import android.widget.TextView
 import android.widget.Toast
 
@@ -22,6 +23,7 @@ import android.widget.Toast
 class TranslatorPanel(
     private val context: Context,
     private val provider: TranslatorProvider = UnconfiguredTranslatorProvider,
+    private val initialText: String = "",
     private val onInsertTranslation: (String) -> Unit
 ) {
     private val languages = TranslatorLanguages.defaults
@@ -56,15 +58,18 @@ class TranslatorPanel(
         languageRow.addView(targetSpinner, LinearLayout.LayoutParams(0, dp(46), 1f))
         root.addView(languageRow)
 
-        val input = TextView(context).apply {
+        val input = EditText(context).apply {
             hint = "Type or paste text to translate"
             textSize = 15f
             setTextColor(Color.WHITE)
             setHintTextColor(Color.rgb(145, 165, 195))
             setPadding(dp(12), dp(10), dp(12), dp(10))
             background = gradient(intArrayOf(Color.rgb(18, 31, 55), Color.rgb(24, 30, 59)), 14f)
-            isFocusable = true
-            isClickable = true
+            setText(initialText)
+            setSelection(length())
+            minLines = 2
+            maxLines = 4
+            isSingleLine = false
         }
         root.addView(input, LinearLayout.LayoutParams(-1, dp(74)))
 
