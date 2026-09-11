@@ -5,8 +5,8 @@ import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.view.Gravity
 import android.widget.Button
+import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
-import android.widget.ScrollView
 import android.widget.TextView
 
 /** Local-only emoji mixer. It creates a reusable Unicode emoji sequence; it does not fake image generation. */
@@ -65,12 +65,12 @@ class MyEmojiCreatorPanel(
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
         }
-        actions.addView(actionButton("INSERT") { onInsert(buildEmoji()) })
+        actions.addView(actionButton("INSERT") { onInsert(buildEmoji()) }, actionParams())
         actions.addView(actionButton("SAVE") {
             MyEmojiCreatorStore.save(context, buildEmoji())
             onSaved()
-        })
-        actions.addView(actionButton("DONE") { onClose() })
+        }, actionParams())
+        actions.addView(actionButton("DONE") { onClose() }, actionParams())
         root.addView(actions, LinearLayout.LayoutParams(-1, dp(54)))
         refresh()
         return root
@@ -86,7 +86,10 @@ class MyEmojiCreatorPanel(
             setPadding(dp(4), dp(4), 0, dp(2))
         }, LinearLayout.LayoutParams(-1, dp(24)))
 
-        val scroll = ScrollView(context).apply { isFillViewport = false }
+        val scroll = HorizontalScrollView(context).apply {
+            isHorizontalScrollBarEnabled = false
+            isFillViewport = false
+        }
         val row = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL }
         options.forEach { option ->
             row.addView(Button(context).apply {
@@ -100,7 +103,7 @@ class MyEmojiCreatorPanel(
                 setMargins(dp(2), dp(2), dp(2), dp(2))
             })
         }
-        scroll.addView(row)
+        scroll.addView(row, LinearLayout.LayoutParams(-2, -1))
         root.addView(scroll, LinearLayout.LayoutParams(-1, dp(52)))
     }
 
@@ -111,6 +114,10 @@ class MyEmojiCreatorPanel(
         setTextColor(Color.WHITE)
         background = rounded(Color.rgb(35, 55, 90), 12f)
         setOnClickListener { action() }
+    }
+
+    private fun actionParams() = LinearLayout.LayoutParams(0, -1, 1f).apply {
+        setMargins(dp(2), dp(2), dp(2), dp(2))
     }
 
     private fun rounded(color: Int, radiusDp: Float) = GradientDrawable().apply {
