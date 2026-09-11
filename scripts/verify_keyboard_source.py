@@ -53,7 +53,14 @@ for function in (
 
 # Safety checks for the current editing and persistence behavior.
 require(service, "deleteSurroundingTextInCodePoints(1, 0)", "emoji-aware backspace")
+require(service, "getSelectedText(0)", "selected-text detection")
+require(service, "connection.commitText(\"\", 1)", "selection deletion")
 require(service, "sendDefaultEditorAction(true)", "editor-aware enter action")
+require(service, "EditorInfo.IME_ACTION_DONE", "DONE editor action")
+require(service, "EditorInfo.IME_ACTION_GO", "GO editor action")
+require(service, "EditorInfo.IME_ACTION_NEXT", "NEXT editor action")
+require(service, "EditorInfo.IME_ACTION_SEND", "SEND editor action")
+require(service, "EditorInfo.IME_ACTION_SEARCH", "SEARCH editor action")
 require(service, "shiftOn = false", "one-shot shift reset")
 require(service, "SavedItemStore.saveItem", "saved-item integration")
 require(service, "MyEmojiCreatorStore.getCreations", "My Emoji collection integration")
