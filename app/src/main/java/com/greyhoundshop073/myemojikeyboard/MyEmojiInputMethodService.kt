@@ -228,7 +228,8 @@ class MyEmojiInputMethodService : InputMethodService() {
         val panel = MyEmojiCreatorPanel(
             context = this,
             onInsert = { emoji -> commitText(emoji) },
-            onClose = { render() }
+            onClose = { render() },
+            onSaved = { render() }
         )
         content.addView(panel.createView(), LinearLayout.LayoutParams(-1, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
             setMargins(dp(4), dp(4), dp(4), dp(8))
