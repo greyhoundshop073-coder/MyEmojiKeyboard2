@@ -2,6 +2,7 @@ from pathlib import Path
 import re
 
 SERVICE = Path("app/src/main/java/com/greyhoundshop073/myemojikeyboard/MyEmojiInputMethodService.kt")
+MAIN_ACTIVITY = Path("app/src/main/java/com/greyhoundshop073/myemojikeyboard/MainActivity.kt")
 STORE = Path("app/src/main/java/com/greyhoundshop073/myemojikeyboard/SavedItemStore.kt")
 MY_EMOJI_STORE = Path("app/src/main/java/com/greyhoundshop073/myemojikeyboard/MyEmojiCreatorStore.kt")
 TRANSLATOR_PANEL = Path("app/src/main/java/com/greyhoundshop073/myemojikeyboard/TranslatorPanel.kt")
@@ -21,6 +22,7 @@ def require(text: str, needle: str, label: str) -> None:
 
 
 service = SERVICE.read_text(encoding="utf-8")
+main_activity = MAIN_ACTIVITY.read_text(encoding="utf-8")
 store = STORE.read_text(encoding="utf-8")
 my_emoji_store = MY_EMOJI_STORE.read_text(encoding="utf-8")
 translator_panel = TRANSLATOR_PANEL.read_text(encoding="utf-8")
@@ -51,8 +53,20 @@ for function in (
 ):
     require(service, function, function)
 
-# Symbols must be reachable from the main keyboard and must expose both pages.
-require(service, 'smallButton("123") { mode = Mode.SYMBOLS; symbolsPage = false; render() }', "symbols utility navigation")
+# Main utility navigation must expose the existing keyboard modes without
+# creating duplicate screens or alternate implementations.
+for button in (
+    'smallButton("ABC") { mode = Mode.LETTERS; render() }',
+    'smallButton("123") { mode = Mode.SYMBOLS; symbolsPage = false; render() }',
+    'smallButton("☺") { mode = Mode.EMOJI; render() }',
+    'smallButton("📋") { mode = Mode.CLIPBOARD; render() }',
+    'smallButton("★") { mode = Mode.SAVED; render() }',
+    'smallButton("✦") { mode = Mode.MY_EMOJI; render() }',
+    'smallButton("🌐") { mode = Mode.TRANSLATOR; render() }',
+):
+    require(service, button, "main utility navigation")
+
+# Symbols must expose both pages and a reliable return path to letters.
 require(service, 'val data = if (symbolsPage) symbolPageTwo else symbols', "symbols page selection")
 require(service, 'keyButton(if (symbolsPage) "1/2" else "2/2") { symbolsPage = !symbolsPage; render() }', "symbols page toggle")
 require(service, 'keyButton("ABC") { mode = Mode.LETTERS; render() }', "symbols return to letters")
@@ -108,6 +122,17 @@ require(translator_panel, "Insert translation", "translator insertion action")
 require(translator_integration, "SharedTranslatorExecutor", "shared translator executor")
 require(translator_integration, "Handler(Looper.getMainLooper())", "main-thread translator callbacks")
 require(translator_service, "UnconfiguredTranslatorProvider", "safe default translator provider")
+
+# The launcher must provide a real enable/select/test path and refresh its
+# status when returning from Android input-method settings.
+require(main_activity, 'Settings.ACTION_INPUT_METHOD_SETTINGS', "keyboard settings action")
+require(main_activity, 'inputMethodManager.showInputMethodPicker()', "keyboard picker action")
+require(main_activity, 'testInput.requestFocus()', "keyboard test focus")
+require(main_activity, 'inputMethodManager.showSoftInput(testInput, InputMethodManager.SHOW_IMPLICIT)', "keyboard test action")
+require(main_activity, 'Settings.Secure.ENABLED_INPUT_METHODS', "enabled keyboard status")
+require(main_activity, 'Settings.Secure.DEFAULT_INPUT_METHOD', "selected keyboard status")
+require(main_activity, 'override fun onResume()', "launcher status refresh lifecycle")
+require(main_activity, 'if (::status.isInitialized) updateStatus()', "safe launcher status refresh")
 
 # Keyboard privacy: the manifest must expose only the input method service,
 # and it must be protected by Android's BIND_INPUT_METHOD permission.
