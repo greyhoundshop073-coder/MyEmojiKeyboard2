@@ -80,16 +80,21 @@ class MyEmojiInputMethodService : InputMethodService() {
             setPadding(dp(4), dp(3), dp(4), dp(3))
             background = gradient(intArrayOf(Color.rgb(13, 29, 51), Color.rgb(20, 25, 55)), 22f)
         }
-        utility.addView(smallButton("ABC") { mode = Mode.LETTERS; render() }, weightParams(1f))
-        utility.addView(smallButton("123") { mode = Mode.SYMBOLS; symbolsPage = false; render() }, weightParams(1f))
-        utility.addView(smallButton("☺") { mode = Mode.EMOJI; render() }, weightParams(1f))
-        utility.addView(smallButton("GIF") { toast("GIFs are coming next") }, weightParams(1f))
-        utility.addView(smallButton("▣") { toast("Sticker studio is coming next") }, weightParams(1f))
-        utility.addView(smallButton("📋") { mode = Mode.CLIPBOARD; render() }, weightParams(1f))
-        utility.addView(smallButton("★") { mode = Mode.SAVED; render() }, weightParams(1f))
-        utility.addView(smallButton("✦") { mode = Mode.MY_EMOJI; render() }, weightParams(1f))
-        utility.addView(smallButton("🌐") { mode = Mode.TRANSLATOR; render() }, weightParams(1f))
-        root.addView(utility, LinearLayout.LayoutParams(-1, dp(48)))
+        utility.addView(smallButton("ABC") { mode = Mode.LETTERS; render() }, utilityButtonParams())
+        utility.addView(smallButton("123") { mode = Mode.SYMBOLS; symbolsPage = false; render() }, utilityButtonParams())
+        utility.addView(smallButton("☺") { mode = Mode.EMOJI; render() }, utilityButtonParams())
+        utility.addView(smallButton("GIF") { toast("GIFs are coming next") }, utilityButtonParams())
+        utility.addView(smallButton("▣") { toast("Sticker studio is coming next") }, utilityButtonParams())
+        utility.addView(smallButton("📋") { mode = Mode.CLIPBOARD; render() }, utilityButtonParams())
+        utility.addView(smallButton("★") { mode = Mode.SAVED; render() }, utilityButtonParams())
+        utility.addView(smallButton("✦") { mode = Mode.MY_EMOJI; render() }, utilityButtonParams())
+        utility.addView(smallButton("🌐") { mode = Mode.TRANSLATOR; render() }, utilityButtonParams())
+        val utilityScroll = HorizontalScrollView(this).apply {
+            isHorizontalScrollBarEnabled = false
+            overScrollMode = View.OVER_SCROLL_NEVER
+            addView(utility, HorizontalScrollView.LayoutParams(dp(9 * 68), -1))
+        }
+        root.addView(utilityScroll, LinearLayout.LayoutParams(-1, dp(48)))
         val suggestion = TextView(this).apply {
             text = "✨  My Emoji  •  Express yourself  •  Your vibe, your keyboard"
             textSize = 12f
@@ -348,7 +353,7 @@ class MyEmojiInputMethodService : InputMethodService() {
         setOnClickListener { action() }
     }
     private fun keyParams(weight: Float = 1f) = LinearLayout.LayoutParams(0, dp(52), weight).apply { setMargins(dp(2), dp(2), dp(2), dp(2)) }
-    private fun weightParams(weight: Float) = LinearLayout.LayoutParams(0, -1, weight).apply { setMargins(dp(2), dp(2), dp(2), dp(2)) }
+    private fun utilityButtonParams() = LinearLayout.LayoutParams(dp(64), -1).apply { setMargins(dp(2), dp(2), dp(2), dp(2)) }
     private fun gradient(colors: IntArray, radiusDp: Float): GradientDrawable = GradientDrawable(GradientDrawable.Orientation.TL_BR, colors).apply { cornerRadius = dp(radiusDp).toFloat() }
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
     private fun dp(value: Float): Int = (value * resources.displayMetrics.density).toInt()
