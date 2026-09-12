@@ -92,7 +92,7 @@ class MyEmojiInputMethodService : InputMethodService() {
         val utilityScroll = HorizontalScrollView(this).apply {
             isHorizontalScrollBarEnabled = false
             overScrollMode = View.OVER_SCROLL_NEVER
-            addView(utility, HorizontalScrollView.LayoutParams(dp(9 * 68), -1))
+            addView(utility, ViewGroup.LayoutParams(dp(9 * 68), -1))
         }
         root.addView(utilityScroll, LinearLayout.LayoutParams(-1, dp(48)))
         val suggestion = TextView(this).apply {
