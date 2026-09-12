@@ -51,6 +51,12 @@ for function in (
 ):
     require(service, function, function)
 
+# Symbols must be reachable from the main keyboard and must expose both pages.
+require(service, 'smallButton("123") { mode = Mode.SYMBOLS; symbolsPage = false; render() }', "symbols utility navigation")
+require(service, 'val data = if (symbolsPage) symbolPageTwo else symbols', "symbols page selection")
+require(service, 'keyButton(if (symbolsPage) "1/2" else "2/2") { symbolsPage = !symbolsPage; render() }', "symbols page toggle")
+require(service, 'keyButton("ABC") { mode = Mode.LETTERS; render() }', "symbols return to letters")
+
 # New editor sessions must start from a clean transient keyboard state.
 require(service, "override fun onStartInput(attribute: EditorInfo?, restarting: Boolean)", "input-session lifecycle hook")
 require(service, "if (restarting) return", "restart preservation")
