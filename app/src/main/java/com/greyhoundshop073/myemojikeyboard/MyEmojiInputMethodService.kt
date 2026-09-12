@@ -162,7 +162,7 @@ class MyEmojiInputMethodService : InputMethodService() {
             render()
         }
         shiftButton.setOnLongClickListener {
-            performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+            shiftButton.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
             capsLock = !capsLock
             shiftOn = false
             render()
@@ -195,202 +195,161 @@ class MyEmojiInputMethodService : InputMethodService() {
     private fun renderEmojis() {
         val categoryBar = HorizontalScrollView(this).apply { isHorizontalScrollBarEnabled = false }
         val categories = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        emojiCategories.keys.forEach { category -> categories.addView(smallButton(category) { showEmojiCategory(category) }, LinearLayout.LayoutParams(dp(48), dp(42))) }
+        emojiCategories.keys.forEach { category ->
+            categories.addView(smallButton(category) { renderEmojiCategory(category) }, emojiCategoryParams())
+        }
         categoryBar.addView(categories)
-        content.addView(categoryBar, LinearLayout.LayoutParams(-1, dp(46)))
-        showEmojiCategory(emojiCategories.keys.first())
+        content.addView(categoryBar, LinearLayout.LayoutParams(-1, dp(50)))
+        renderEmojiCategory(emojiCategories.keys.first())
     }
 
-    private fun showEmojiCategory(category: String) {
-        val existingCategoryBar = content.getChildAt(0)
-        content.removeAllViews()
-        if (existingCategoryBar != null) content.addView(existingCategoryBar)
-        createItemGrid(emojiCategories[category] ?: emptyList())
+    private fun renderEmojiCategory(category: String) {
+        if (content.childCount > 1) content.removeViews(1, content.childCount - 1)
+        val grid = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        emojiCategories[category].orEmpty().chunked(8).forEach { row ->
+            val rowView = keyboardRow()
+            row.forEach { emoji ->
+                val button = keyButton(emoji) { commitText(emoji) }
+                button.setOnLongClickListener {
+                    SavedItemStore.add(this, emoji)
+                    toast("Saved $emoji")
+                    true
+                }
+                rowView.addView(button, keyParams())
+            }
+            repeat(8 - row.size) { rowView.addView(TextView(this), keyParams()) }
+            grid.addView(rowView)
+        }
+        content.addView(grid)
         val bottom = keyboardRow()
-        bottom.addView(keyButton("ABC") { mode = Mode.LETTERS; render() }, keyParams(1.1f))
-        bottom.addView(keyButton("★") { mode = Mode.SAVED; render() }, keyParams(1.1f))
-        bottom.addView(keyButton("MY") { mode = Mode.MY_EMOJI; render() }, keyParams(1.1f))
-        bottom.addView(keyButton("🌐") { mode = Mode.TRANSLATOR; render() }, keyParams(1.1f))
-        bottom.addView(keyButton("SPACE") { commitText(" ") }, keyParams(2.1f))
-        bottom.addView(keyButton("⌫") { deletePreviousCharacter() }, keyParams(1.1f))
+        bottom.addView(keyButton("ABC") { mode = Mode.LETTERS; render() }, keyParams(1.2f))
+        bottom.addView(keyButton("123") { mode = Mode.SYMBOLS; symbolsPage = false; render() }, keyParams(1.2f))
+        bottom.addView(keyButton("★") { mode = Mode.SAVED; render() }, keyParams(1.2f))
+        bottom.addView(keyButton("⌫") { deletePreviousCharacter() }, keyParams(1.2f))
         content.addView(bottom)
     }
 
     private fun renderSaved() {
-        val saved = SavedItemStore.getSavedItems(this)
-        addSectionTitle("SAVED ITEMS", "★  Your favorites, ready in one tap")
-        if (saved.isEmpty()) addEmptyState("★", "Your saved items will appear here", "Long-press an emoji or symbol to save it.")
-        else createItemGrid(saved, allowRemoval = true)
-        val bottom = keyboardRow()
-        bottom.addView(keyButton("ABC") { mode = Mode.LETTERS; render() }, keyParams(1.1f))
-        bottom.addView(keyButton("☺") { mode = Mode.EMOJI; render() }, keyParams(1.1f))
-        bottom.addView(keyButton("MY") { mode = Mode.MY_EMOJI; render() }, keyParams(1.1f))
-        bottom.addView(keyButton("🌐") { mode = Mode.TRANSLATOR; render() }, keyParams(1.1f))
-        bottom.addView(keyButton("SPACE") { commitText(" ") }, keyParams(2.1f))
-        bottom.addView(keyButton("⌫") { deletePreviousCharacter() }, keyParams(1.1f))
-        content.addView(bottom)
-    }
-
-    private fun renderMyEmoji() {
-        addSectionTitle("MY EMOJI", "✦  Create, save and reuse your personal emoji combinations")
-        val panel = MyEmojiCreatorPanel(context = this, onInsert = { emoji -> commitText(emoji) }, onClose = { render() }, onSaved = { render() })
-        content.addView(panel.createView(), LinearLayout.LayoutParams(-1, ViewGroup.LayoutParams.WRAP_CONTENT).apply { setMargins(dp(4), dp(4), dp(4), dp(8)) })
-        val saved = MyEmojiCreatorStore.getCreations(this)
-        addSectionTitle("MY COLLECTION", "Tap to insert • Long-press to remove")
-        if (saved.isEmpty()) addEmptyState("✦", "No custom emoji saved yet", "Use SAVE in the creator above to keep your favorite combinations here.")
-        else {
-            var row: LinearLayout? = null
-            saved.forEachIndexed { index, emoji ->
-                if (index % 4 == 0) { row = keyboardRow(); content.addView(row) }
-                val item = TextView(this).apply {
-                    text = emoji
-                    textSize = 27f
-                    gravity = Gravity.CENTER
-                    setPadding(dp(2), dp(8), dp(2), dp(8))
-                    setTextColor(text)
-                    background = gradient(intArrayOf(Color.rgb(20, 36, 63), Color.rgb(15, 27, 49)), 12f)
-                    setOnClickListener { commitText(emoji) }
-                    setOnLongClickListener {
-                        MyEmojiCreatorStore.remove(this@MyEmojiInputMethodService, emoji)
-                        Toast.makeText(this@MyEmojiInputMethodService, "Removed ✦ $emoji", Toast.LENGTH_SHORT).show()
-                        render()
-                        true
-                    }
+        addSectionTitle("SAVED", "★  Your saved emoji and text")
+        val items = SavedItemStore.getAll(this)
+        if (items.isEmpty()) {
+            val empty = TextView(this).apply { text = "No saved items yet. Long-press an emoji to save it."; textSize = 16f; setPadding(dp(16), dp(24), dp(16), dp(24)); gravity = Gravity.CENTER }
+            content.addView(empty)
+        } else {
+            items.chunked(5).forEach { row ->
+                val rowView = keyboardRow()
+                row.forEach { item ->
+                    val button = keyButton(item) { commitText(item) }
+                    button.setOnLongClickListener { SavedItemStore.remove(this, item); render(); true }
+                    rowView.addView(button, keyParams())
                 }
-                row?.addView(item, LinearLayout.LayoutParams(0, dp(58), 1f).apply { setMargins(dp(2), dp(2), dp(2), dp(2)) })
+                repeat(5 - row.size) { rowView.addView(TextView(this), keyParams()) }
+                content.addView(rowView)
             }
         }
         val bottom = keyboardRow()
-        bottom.addView(keyButton("ABC") { mode = Mode.LETTERS; render() }, keyParams(1.1f))
-        bottom.addView(keyButton("☺") { mode = Mode.EMOJI; render() }, keyParams(1.1f))
-        bottom.addView(keyButton("★") { mode = Mode.SAVED; render() }, keyParams(1.1f))
-        bottom.addView(keyButton("🌐") { mode = Mode.TRANSLATOR; render() }, keyParams(1.1f))
-        bottom.addView(keyButton("SPACE") { commitText(" ") }, keyParams(2.1f))
-        bottom.addView(keyButton("⌫") { deletePreviousCharacter() }, keyParams(1.1f))
+        bottom.addView(keyButton("ABC") { mode = Mode.LETTERS; render() }, keyParams(1.2f))
+        bottom.addView(keyButton("☺") { mode = Mode.EMOJI; render() }, keyParams(1.2f))
+        bottom.addView(keyButton("⌫") { deletePreviousCharacter() }, keyParams(1.2f))
         content.addView(bottom)
     }
 
     private fun renderClipboard() {
+        addSectionTitle("CLIPBOARD", "📋  Recent copied text")
         val clipboard = getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
-        val clip = clipboard.primaryClip
-        val items = mutableListOf<String>()
-        if (clip != null) for (index in 0 until clip.itemCount) {
-            if (items.size == MAX_CLIPBOARD_ITEMS) break
-            val value = clip.getItemAt(index).coerceToText(this).toString().trim()
-            if (value.isNotEmpty() && value.length <= MAX_CLIPBOARD_ITEM_LENGTH && !items.contains(value)) items.add(value)
-        }
-        addSectionTitle("CLIPBOARD", "▣  Quick access to copied text")
-        if (items.isEmpty()) addEmptyState("▣", "No text in clipboard", "Copy text from another app, then open Clipboard again.")
-        else items.forEach { value ->
-            val item = TextView(this).apply {
-                text = value
-                textSize = 16f
-                setTextColor(text)
-                gravity = Gravity.CENTER_VERTICAL
-                setPadding(dp(16), dp(12), dp(16), dp(12))
-                background = gradient(intArrayOf(surfaceLight, Color.rgb(18, 31, 55)), 14f)
-                setOnClickListener { commitText(value) }
+        val items = ClipboardStore.getAll(this)
+        if (clipboard.hasPrimaryClip()) clipboard.primaryClip?.let { clip -> if (clip.itemCount > 0) ClipboardStore.add(this, clip.getItemAt(0).coerceToText(this).toString()) }
+        val currentItems = ClipboardStore.getAll(this)
+        if (currentItems.isEmpty()) {
+            val empty = TextView(this).apply { text = "No clipboard items yet."; textSize = 16f; setPadding(dp(16), dp(24), dp(16), dp(24)); gravity = Gravity.CENTER }
+            content.addView(empty)
+        } else {
+            currentItems.forEach { item ->
+                val button = keyButton(item.take(120)) { commitText(item) }
+                content.addView(button, LinearLayout.LayoutParams(-1, dp(52)).apply { setMargins(dp(4), dp(3), dp(4), dp(3)) })
             }
-            content.addView(item, LinearLayout.LayoutParams(-1, ViewGroup.LayoutParams.WRAP_CONTENT).apply { setMargins(dp(6), dp(4), dp(6), dp(4)) })
         }
         val bottom = keyboardRow()
-        bottom.addView(keyButton("ABC") { mode = Mode.LETTERS; render() }, keyParams(1.1f))
-        bottom.addView(keyButton("☺") { mode = Mode.EMOJI; render() }, keyParams(1.1f))
-        bottom.addView(keyButton("★") { mode = Mode.SAVED; render() }, keyParams(1.1f))
-        bottom.addView(keyButton("MY") { mode = Mode.MY_EMOJI; render() }, keyParams(1.1f))
-        bottom.addView(keyButton("🌐") { mode = Mode.TRANSLATOR; render() }, keyParams(1.1f))
-        bottom.addView(keyButton("SPACE") { commitText(" ") }, keyParams(1.9f))
-        bottom.addView(keyButton("⌫") { deletePreviousCharacter() }, keyParams(1.1f))
+        bottom.addView(keyButton("ABC") { mode = Mode.LETTERS; render() }, keyParams(1.2f))
+        bottom.addView(keyButton("☺") { mode = Mode.EMOJI; render() }, keyParams(1.2f))
+        bottom.addView(keyButton("⌫") { deletePreviousCharacter() }, keyParams(1.2f))
         content.addView(bottom)
     }
 
-    private fun createItemGrid(items: List<String>, allowRemoval: Boolean = false) {
-        var row: LinearLayout? = null
-        items.forEachIndexed { index, item ->
-            if (index % 8 == 0) { row = keyboardRow(); content.addView(row) }
-            val button = TextView(this).apply {
-                text = item
-                textSize = 28f
-                gravity = Gravity.CENTER
-                setPadding(dp(2), dp(8), dp(2), dp(8))
-                setTextColor(text)
-                background = gradient(intArrayOf(Color.rgb(20, 36, 63), Color.rgb(15, 27, 49)), 12f)
-                setOnClickListener { commitText(item) }
-                setOnLongClickListener {
-                    if (allowRemoval) {
-                        SavedItemStore.removeItem(this@MyEmojiInputMethodService, item)
-                        Toast.makeText(this@MyEmojiInputMethodService, "Removed ★ $item", Toast.LENGTH_SHORT).show()
-                        render()
-                    } else {
-                        SavedItemStore.saveItem(this@MyEmojiInputMethodService, item)
-                        Toast.makeText(this@MyEmojiInputMethodService, "★ Saved $item", Toast.LENGTH_SHORT).show()
-                    }
-                    true
+    private fun renderMyEmoji() {
+        addSectionTitle("MY EMOJI", "✦  Create and use your personal emoji")
+        val panel = MyEmojiCreatorPanel(this) { value -> commitText(value) }
+        content.addView(panel.createView(), LinearLayout.LayoutParams(-1, ViewGroup.LayoutParams.WRAP_CONTENT))
+        val items = MyEmojiCreatorStore.getAll(this)
+        if (items.isNotEmpty()) {
+            items.chunked(5).forEach { row ->
+                val rowView = keyboardRow()
+                row.forEach { item ->
+                    val button = keyButton(item) { commitText(item) }
+                    button.setOnLongClickListener { MyEmojiCreatorStore.remove(this, item); render(); true }
+                    rowView.addView(button, keyParams())
                 }
+                repeat(5 - row.size) { rowView.addView(TextView(this), keyParams()) }
+                content.addView(rowView)
             }
-            row?.addView(button, LinearLayout.LayoutParams(0, dp(52), 1f).apply { setMargins(dp(2), dp(2), dp(2), dp(2)) })
         }
+        val bottom = keyboardRow()
+        bottom.addView(keyButton("ABC") { mode = Mode.LETTERS; render() }, keyParams(1.2f))
+        bottom.addView(keyButton("☺") { mode = Mode.EMOJI; render() }, keyParams(1.2f))
+        bottom.addView(keyButton("★") { mode = Mode.SAVED; render() }, keyParams(1.2f))
+        bottom.addView(keyButton("⌫") { deletePreviousCharacter() }, keyParams(1.2f))
+        content.addView(bottom)
     }
 
     private fun addSectionTitle(title: String, subtitle: String) {
-        val block = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(12), dp(8), dp(12), dp(6)) }
-        val heading = TextView(this).apply { text = title; textSize = 17f; setTextColor(Color.WHITE); setTypeface(null, android.graphics.Typeface.BOLD) }
-        val sub = TextView(this).apply { text = subtitle; textSize = 11f; setTextColor(Color.rgb(130, 210, 255)) }
-        block.addView(heading); block.addView(sub)
-        content.addView(block)
+        val titleView = TextView(this).apply { text = title; textSize = 18f; setTextColor(accent); gravity = Gravity.CENTER; setPadding(dp(8), dp(10), dp(8), dp(2)) }
+        val subtitleView = TextView(this).apply { text = subtitle; textSize = 13f; setTextColor(Color.rgb(190, 220, 255)); gravity = Gravity.CENTER; setPadding(dp(8), 0, dp(8), dp(8)) }
+        content.addView(titleView)
+        content.addView(subtitleView)
     }
 
-    private fun addEmptyState(icon: String, title: String, subtitle: String) {
-        val state = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER; setPadding(dp(20), dp(35), dp(20), dp(35)); background = gradient(intArrayOf(surface, Color.rgb(20, 29, 52)), 18f) }
-        val i = TextView(this).apply { text = icon; textSize = 34f; gravity = Gravity.CENTER; setTextColor(Color.WHITE) }
-        val t = TextView(this).apply { text = title; textSize = 16f; gravity = Gravity.CENTER; setTextColor(Color.WHITE) }
-        val s = TextView(this).apply { text = subtitle; textSize = 12f; gravity = Gravity.CENTER; setTextColor(Color.rgb(170, 195, 225)); setPadding(dp(10), dp(8), dp(10), 0) }
-        state.addView(i); state.addView(t); state.addView(s)
-        content.addView(state, LinearLayout.LayoutParams(-1, dp(150)).apply { setMargins(dp(8), dp(8), dp(8), dp(8)) })
+    private fun commitText(value: String) { currentInputConnection?.commitText(value, 1) }
+
+    private fun deletePreviousCharacter() {
+        val connection = currentInputConnection ?: return
+        val selected = connection.getSelectedText(0)?.toString()
+        if (!selected.isNullOrEmpty()) { connection.commitText("", 1); return }
+        connection.deleteSurroundingTextInCodePoints(1, 0)
     }
 
-    private fun keyboardRow(): LinearLayout = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER; setPadding(dp(2), dp(2), dp(2), dp(2)) }
+    private fun sendEnter() {
+        val connection = currentInputConnection ?: return
+        val options = currentInputEditorInfo
+        val action = options?.imeOptions?.and(EditorInfo.IME_MASK_ACTION) ?: EditorInfo.IME_ACTION_NONE
+        if (action != EditorInfo.IME_ACTION_NONE && action != EditorInfo.IME_ACTION_UNSPECIFIED) connection.performEditorAction(action) else connection.commitText("\n", 1)
+        shiftOn = false
+    }
+
+    private fun keyboardRow() = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER; setPadding(dp(2), dp(2), dp(2), dp(2)) }
+
     private fun keyButton(label: String, action: () -> Unit): Button = Button(this).apply {
         text = label
         textSize = if (label.length > 4) 12f else 17f
         isAllCaps = false
-        setTextColor(Color.WHITE)
-        background = gradient(intArrayOf(Color.rgb(24, 43, 73), Color.rgb(14, 28, 51)), 11f)
+        setTextColor(textColor())
+        background = gradient(intArrayOf(surfaceLight, Color.rgb(30, 48, 82)), 12f)
         setOnClickListener { performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP); action() }
     }
+
     private fun smallButton(label: String, action: () -> Unit): Button = Button(this).apply {
         text = label
-        textSize = if (label.length > 3) 11f else 17f
+        textSize = 13f
         isAllCaps = false
-        setTextColor(Color.WHITE)
-        background = gradient(intArrayOf(Color.rgb(26, 50, 83), Color.rgb(17, 32, 58)), 15f)
+        setTextColor(textColor())
+        background = gradient(intArrayOf(Color.rgb(25, 45, 78), Color.rgb(35, 30, 72)), 12f)
         setOnClickListener { performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP); action() }
     }
-    private fun keyParams(weight: Float = 1f) = LinearLayout.LayoutParams(0, dp(52), weight).apply { setMargins(dp(2), dp(2), dp(2), dp(2)) }
-    private fun utilityButtonParams() = LinearLayout.LayoutParams(dp(64), -1).apply { setMargins(dp(2), dp(2), dp(2), dp(2)) }
-    private fun gradient(colors: IntArray, radiusDp: Float): GradientDrawable = GradientDrawable(GradientDrawable.Orientation.TL_BR, colors).apply { cornerRadius = dp(radiusDp).toFloat() }
+
+    private fun keyParams(weight: Float = 1f) = LinearLayout.LayoutParams(0, dp(50), weight).apply { setMargins(dp(2), dp(2), dp(2), dp(2)) }
+    private fun utilityButtonParams() = LinearLayout.LayoutParams(dp(64), dp(42)).apply { setMargins(dp(2), 0, dp(2), 0) }
+    private fun emojiCategoryParams() = LinearLayout.LayoutParams(dp(48), dp(46)).apply { setMargins(dp(2), 0, dp(2), 0) }
+    private fun textColor() = text
+    private fun gradient(colors: IntArray, radius: Float): GradientDrawable = GradientDrawable(GradientDrawable.Orientation.TL_BR, colors).apply { cornerRadius = dp(radius.toInt()).toFloat() }
+    private fun toast(message: String) = Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
-    private fun dp(value: Float): Int = (value * resources.displayMetrics.density).toInt()
-    private fun commitText(value: String) { currentInputConnection?.commitText(value, 1) }
-    private fun deletePreviousCharacter() {
-        val connection: InputConnection = currentInputConnection ?: return
-        val selected = connection.getSelectedText(0)
-        if (!selected.isNullOrEmpty()) { connection.commitText("", 1); return }
-        connection.deleteSurroundingTextInCodePoints(1, 0)
-    }
-    private fun sendEnter() {
-        val editorInfo: EditorInfo? = currentInputEditorInfo
-        when (editorInfo?.imeOptions?.and(EditorInfo.IME_MASK_ACTION)) {
-            EditorInfo.IME_ACTION_DONE, EditorInfo.IME_ACTION_GO, EditorInfo.IME_ACTION_NEXT,
-            EditorInfo.IME_ACTION_SEND, EditorInfo.IME_ACTION_SEARCH -> sendDefaultEditorAction(true)
-            else -> sendKeyChar('\n')
-        }
-        shiftOn = true
-        if (mode == Mode.LETTERS) render()
-    }
-    private fun toast(message: String) { Toast.makeText(this, message, Toast.LENGTH_SHORT).show() }
-    private companion object {
-        const val MAX_CLIPBOARD_ITEMS = 30
-        const val MAX_CLIPBOARD_ITEM_LENGTH = 2000
-    }
 }
