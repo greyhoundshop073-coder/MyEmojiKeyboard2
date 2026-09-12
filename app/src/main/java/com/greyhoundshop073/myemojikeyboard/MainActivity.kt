@@ -8,6 +8,7 @@ import android.view.Gravity
 import android.view.inputmethod.InputMethodManager
 import android.widget.Button
 import android.widget.EditText
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 
@@ -22,8 +23,17 @@ class MainActivity : Activity() {
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
-            setPadding(dp(32), dp(48), dp(32), dp(48))
+            setPadding(dp(28), dp(28), dp(28), dp(36))
         }
+
+        val icon = ImageView(this).apply {
+            setImageResource(R.drawable.ic_my_emoji_keyboard)
+            contentDescription = "My Emoji Keyboard icon"
+            scaleType = ImageView.ScaleType.CENTER_INSIDE
+        }
+        root.addView(icon, LinearLayout.LayoutParams(dp(104), dp(104)).apply {
+            bottomMargin = dp(12)
+        })
 
         val title = TextView(this).apply {
             text = "😀 My Emoji Keyboard"
@@ -37,17 +47,24 @@ class MainActivity : Activity() {
 
                 Use the buttons below to enable and select My Emoji Keyboard.
 
-                Once selected, open WhatsApp, Telegram, Messages, or another app and tap a text field to use your emoji keyboard.
+                Once selected, open WhatsApp, Telegram, Messages, or another app and tap a text field to use your keyboard.
             """.trimIndent()
             textSize = 17f
             gravity = Gravity.CENTER
-            setPadding(0, dp(24), 0, dp(20))
+            setPadding(0, dp(18), 0, dp(16))
+        }
+
+        val features = TextView(this).apply {
+            text = "☺ Emoji  •  ★ Saved  •  ✦ My Emoji  •  📋 Clipboard  •  🌐 Translator  •  123 Symbols"
+            textSize = 13f
+            gravity = Gravity.CENTER
+            setPadding(dp(8), dp(8), dp(8), dp(18))
         }
 
         status = TextView(this).apply {
             textSize = 15f
             gravity = Gravity.CENTER
-            setPadding(0, 0, 0, dp(24))
+            setPadding(0, 0, 0, dp(20))
         }
 
         val settingsButton = Button(this).apply {
@@ -70,7 +87,7 @@ class MainActivity : Activity() {
             text = "Test your keyboard"
             textSize = 16f
             gravity = Gravity.CENTER
-            setPadding(0, dp(20), 0, dp(8))
+            setPadding(0, dp(18), 0, dp(8))
         }
 
         testInput = EditText(this).apply {
@@ -94,6 +111,7 @@ class MainActivity : Activity() {
 
         root.addView(title)
         root.addView(description)
+        root.addView(features)
         root.addView(status)
         root.addView(settingsButton)
         root.addView(selectButton)
