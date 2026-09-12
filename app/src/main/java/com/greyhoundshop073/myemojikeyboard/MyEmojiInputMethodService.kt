@@ -5,6 +5,7 @@ import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.inputmethodservice.InputMethodService
 import android.view.Gravity
+import android.view.HapticFeedbackConstants
 import android.view.View
 import android.view.ViewGroup
 import android.view.inputmethod.EditorInfo
@@ -21,6 +22,7 @@ class MyEmojiInputMethodService : InputMethodService() {
     private lateinit var content: LinearLayout
     private var mode = Mode.LETTERS
     private var shiftOn = false
+    private var capsLock = false
     private var symbolsPage = false
     private enum class Mode { LETTERS, EMOJI, SYMBOLS, SAVED, CLIPBOARD, MY_EMOJI, TRANSLATOR }
     private val letters = listOf(
@@ -59,6 +61,7 @@ class MyEmojiInputMethodService : InputMethodService() {
         if (restarting) return
         mode = Mode.LETTERS
         shiftOn = false
+        capsLock = false
         symbolsPage = false
         if (::root.isInitialized && ::content.isInitialized) render()
     }
@@ -145,16 +148,27 @@ class MyEmojiInputMethodService : InputMethodService() {
             val rowView = keyboardRow()
             if (rowIndex == 1) rowView.setPadding(dp(18), dp(2), dp(18), dp(2))
             row.forEach { letter ->
-                val display = if (shiftOn) letter.uppercase() else letter
+                val display = if (shiftOn || capsLock) letter.uppercase() else letter
                 rowView.addView(keyButton(display) {
                     commitText(display)
-                    if (shiftOn) { shiftOn = false; render() }
+                    if (shiftOn && !capsLock) { shiftOn = false; render() }
                 }, keyParams())
             }
             content.addView(rowView)
         }
         val bottom = keyboardRow()
-        bottom.addView(keyButton(if (shiftOn) "⇧" else "↑") { shiftOn = !shiftOn; render() }, keyParams(1.15f))
+        val shiftButton = keyButton(if (capsLock) "⇧" else if (shiftOn) "⇧" else "↑") {
+            shiftOn = !shiftOn
+            render()
+        }
+        shiftButton.setOnLongClickListener {
+            performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+            capsLock = !capsLock
+            shiftOn = false
+            render()
+            true
+        }
+        bottom.addView(shiftButton, keyParams(1.15f))
         bottom.addView(keyButton("☺") { mode = Mode.EMOJI; render() }, keyParams(1f))
         bottom.addView(keyButton("SPACE") { commitText(" ") }, keyParams(3.3f))
         bottom.addView(keyButton("⌫") { deletePreviousCharacter() }, keyParams(1.15f))
@@ -342,7 +356,7 @@ class MyEmojiInputMethodService : InputMethodService() {
         isAllCaps = false
         setTextColor(Color.WHITE)
         background = gradient(intArrayOf(Color.rgb(24, 43, 73), Color.rgb(14, 28, 51)), 11f)
-        setOnClickListener { action() }
+        setOnClickListener { performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP); action() }
     }
     private fun smallButton(label: String, action: () -> Unit): Button = Button(this).apply {
         text = label
@@ -350,7 +364,7 @@ class MyEmojiInputMethodService : InputMethodService() {
         isAllCaps = false
         setTextColor(Color.WHITE)
         background = gradient(intArrayOf(Color.rgb(26, 50, 83), Color.rgb(17, 32, 58)), 15f)
-        setOnClickListener { action() }
+        setOnClickListener { performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP); action() }
     }
     private fun keyParams(weight: Float = 1f) = LinearLayout.LayoutParams(0, dp(52), weight).apply { setMargins(dp(2), dp(2), dp(2), dp(2)) }
     private fun utilityButtonParams() = LinearLayout.LayoutParams(dp(64), -1).apply { setMargins(dp(2), dp(2), dp(2), dp(2)) }
